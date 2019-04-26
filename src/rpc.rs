@@ -2,9 +2,9 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Message {
-  id: String,
+  pub id: String,
   #[serde(flatten)]
-  payload: MessageType
+  pub payload: MessageType
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -18,31 +18,34 @@ pub enum MessageType {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CreateIndex {
-  name: String,
-  schema: String // json
+  pub name: String,
+  // This is later casted into tantivy::schema::Schema
+  pub schema: serde_json::Value,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct AddDocuments {
-  documents: Vec<Document>
+  pub index: String,
+  pub documents: Vec<Document>
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Document {
-  id: String,
-  title: String,
-  body: String,
-  tags: Vec<String>
+  pub id: String,
+  pub title: String,
+  pub body: String,
+  pub tags: Vec<String>
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Query {
-  query: String,
-  limit: u32
+  pub index: String,
+  pub query: String,
+  pub limit: Option<u32>
  }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct AddSegment {
-   index: String,
-   meta_json: String
- }
+  index: String,
+  meta_json: String
+}
