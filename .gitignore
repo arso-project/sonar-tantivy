@@ -1,0 +1,5 @@
+/target
+**/*.rs.bk
+.cargo
+/tantivy
+Cargo.lock

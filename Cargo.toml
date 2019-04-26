@@ -1,0 +1,11 @@
+[package]
+name = "sonar"
+version = "0.1.0"
+authors = ["Franz Heinzmann (Frando) <frando@unbiskant.org>"]
+edition = "2018"
+
+[dependencies]
+tantivy = "0.9.1"
+
+[dev-dependencies]
+tempdir = "0.3.7"
