@@ -1,11 +1,11 @@
-const ndjson = require('ndjson');
+const ndjson = require('ndjson')
 const p = require('path')
-const { spawn } = require('child_process');
+const { spawn } = require('child_process')
 const stream = require('stream')
 
 main()
 
-function parse(data) {
+function parse (data) {
   try {
     const string = data.toString()
     console.log('RECIVE: ', string)
@@ -17,7 +17,7 @@ function parse(data) {
   }
 }
 
-function main() {
+function main () {
   let bin = process.argv[2]
   const { send, receive } = rpc(bin)
 
@@ -32,7 +32,7 @@ function main() {
   // send(addSegment(index, 'foo'))
 }
 
-function schema() {
+function schema () {
   const schema = [
     {
       name: 'title',
@@ -74,17 +74,16 @@ function schema() {
     }
   ]
   return schema
-
 }
 
-function getDocs() {
+function getDocs () {
   return [
     { id: '0', title: 'Hello, world!', body: 'hi there', tags: ['foo', 'bar'] },
     { id: '1', title: 'Hello, moon!', body: 'nothing to see', tags: ['boo', 'baz'] }
   ]
 }
 
-function createIndex(name, schema) {
+function createIndex (name, schema) {
   return {
     type: 'CreateIndex',
     payload: {
@@ -94,14 +93,14 @@ function createIndex(name, schema) {
   }
 }
 
-function addDocuments(index, documents) {
+function addDocuments (index, documents) {
   documents = documents.map(doc => {
     let tuples = []
     for (let [field, value] of Object.entries(doc)) {
       if (Array.isArray(value)) {
         value.forEach(val => tuples.push([field, val]))
       } else {
-        tuples.push([field, value]);
+        tuples.push([field, value])
       }
     }
     return tuples
@@ -116,7 +115,7 @@ function addDocuments(index, documents) {
   }
 }
 
-function query(index, query) {
+function query (index, query) {
   return {
     type: 'Query',
     payload: {
@@ -126,7 +125,7 @@ function query(index, query) {
   }
 }
 
-function addSegment(index, metaJson) {
+function addSegment (index, metaJson) {
   return {
     type: 'AddSegment',
     payload: {
@@ -136,7 +135,7 @@ function addSegment(index, metaJson) {
   }
 }
 
-function rpc() {
+function rpc () {
   const sonar = spawn('cargo', ['run'])
   let counter = 0
   const sender = ndjson.serialize()
@@ -152,7 +151,7 @@ function rpc() {
 
   return { send, receive }
 
-  function send(message) {
+  function send (message) {
     if (!message.id) message.id = String(++counter)
     sender.write(message)
   }
