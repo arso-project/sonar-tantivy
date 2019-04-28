@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 use std::io::{self, BufRead, Write};
 use std::path::PathBuf;
 use tantivy::schema::FieldValue;
-use tantivy::{Document, Index, Result, TantivyError};
+use tantivy::{Document, Directory, Index, Result, TantivyError};
 
 use crate::index::*;
 use crate::rpc::*;
@@ -45,6 +45,7 @@ fn main() -> io::Result<()> {
 
   Ok(())
 }
+
 
 fn reply<T> (response: T) -> io::Result<()> 
 where T: Serialize {
@@ -124,9 +125,18 @@ impl Handle for Query {
   }
 }
 
+// TODO Matze: Idee ist das die Segmentfiles bereits im richtigen Indexordner liegen(Das soll später über node passieren).
+// TODO Matze: Es gibt die managed.json dort wollen wir die Segment ID reinschreiben und dann das Segment comitten
+// Ich hab angefangen den Handler und die Funktion dafür zu schreiben, das ist allerdings gerade mehr ein rumprobieren.  
+
 impl Handle for AddSegment {
   fn handle(&self, catalog: &mut IndexCatalog) -> Result<()> {
-    println!("add segment!");
+      let handle = catalog.get_index(&self.index)?;
+      let mut data = serde::to
+      handle.add_segment(
+        &catalog.base_path, 
+        ;
+
     Ok(())
   }
 }

@@ -1,14 +1,16 @@
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fs;
 use std::io;
-use std::cell::RefCell;
+use std::path::{PathBuf, Path};
 use std::rc::Rc;
-use std::path::PathBuf;
-use tantivy::schema::{Schema, Value, Document, FieldValue, NamedFieldDocument};
-use tantivy::query::QueryParser;
 use tantivy::collector::TopDocs;
+use tantivy::query::QueryParser;
+use tantivy::schema::{Document, FieldValue, NamedFieldDocument, Schema, Value};
 
-use tantivy::{self, Index, IndexReader, IndexWriter, Result, TantivyError, ReloadPolicy};
+use tantivy::{
+  self, Directory, Index, IndexReader, IndexWriter, ReloadPolicy, Result, TantivyError,
+};
 
 pub struct IndexCatalog {
   pub base_path: PathBuf,
@@ -111,7 +113,7 @@ impl IndexHandle {
     }
   }
 
-  pub fn add_documents (&mut self, docs: &[Vec<(String, Value)>]) -> Result<()> {
+  pub fn add_documents(&mut self, docs: &[Vec<(String, Value)>]) -> Result<()> {
     // let writer = self.get_writer()?;
 
     // let writer = handle.get_writer()?;
@@ -133,38 +135,38 @@ impl IndexHandle {
       }
 
       let opstamp = writer.add_document(document);
-
     }
     writer.commit()?;
     self.writer = Some(writer);
     Ok(())
   }
 
-  fn ensure_writer (&mut self) -> Result<()>{
+  fn ensure_writer(&mut self) -> Result<()> {
     if self.writer.is_none() {
-        let writer = self.index.writer(50_000_000)?;
-        self.writer = Some(writer);
-    }
-    Ok(())
-  }
-  
-  fn ensure_reader (&mut self) -> Result<()>{
-    if self.reader.is_none() {
-      let reader = self.index
-        .reader_builder()
-        .reload_policy(ReloadPolicy::OnCommit)
-        .try_into()?;
-        self.reader = Some(reader);
+      let writer = self.index.writer(50_000_000)?;
+      self.writer = Some(writer);
     }
     Ok(())
   }
 
-  pub fn query (&mut self, query: &String, limit: u32) -> Result<Vec<(f32,NamedFieldDocument)>> {
+  fn ensure_reader(&mut self) -> Result<()> {
+    if self.reader.is_none() {
+      let reader = self
+        .index
+        .reader_builder()
+        .reload_policy(ReloadPolicy::OnCommit)
+        .try_into()?;
+      self.reader = Some(reader);
+    }
+    Ok(())
+  }
+
+  pub fn query(&mut self, query: &String, limit: u32) -> Result<Vec<(f32, NamedFieldDocument)>> {
     self.ensure_reader()?;
     let reader = self.reader.take().unwrap();
     let searcher = reader.searcher();
     let schema = self.index.schema();
-    
+
     let mut fields = vec![];
     let all_fields = schema.fields();
     for field_entry in all_fields {
@@ -178,13 +180,19 @@ impl IndexHandle {
     let query_parser = QueryParser::for_index(&self.index, fields);
     let query = query_parser.parse_query(query)?;
     let top_docs = searcher.search(&query, &TopDocs::with_limit(limit as usize))?;
-    
+
     let mut results = vec![];
     for (score, doc_address) in top_docs {
-        let retrieved_doc = searcher.doc(doc_address)?;
-        results.push((score,schema.to_named_doc(&retrieved_doc)));
+      let retrieved_doc = searcher.doc(doc_address)?;
+      results.push((score, schema.to_named_doc(&retrieved_doc)));
     }
 
     Ok(results)
+  }
+  pub fn add_segment(&mut self,path : &Path, data : &[u8]) -> Result<()> {
+    let directory = self.index.directory();
+    directory.atomic_write(path, data);
+    let read = directory.open_read(&path).unwrap();
+    Ok(())
   }
 }

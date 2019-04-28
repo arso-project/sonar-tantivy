@@ -26,9 +26,9 @@ function main () {
   })
 
   const index = 'test_index'
-  // send(createIndex(index, schema()))
-  // send(addDocuments(index, getDocs()))
-  send(query(index, 'hello'))
+   //send(createIndex(index, schema()))
+   send(addDocuments(index, getDocs()))
+ //send(query(index, 'hello'))
   // send(addSegment(index, 'foo'))
 }
 

@@ -78,6 +78,6 @@ impl QueryResponseDocument {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct AddSegment {
-  index: String,
-  meta_json: String,
+  pub index: String,
+  pub meta_json: String,
 }
