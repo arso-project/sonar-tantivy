@@ -132,11 +132,17 @@ impl Handle for Query {
 impl Handle for AddSegment {
   fn handle(&self, catalog: &mut IndexCatalog) -> Result<()> {
       let handle = catalog.get_index(&self.index)?;
-      let mut data = serde_json::to_string(&self)?;
-      println!("addSegment, data: {:#?}", data);      
-      // handle.add_segment(
-      //   &catalog.base_path, 8
-      // );
+      let mut data = serde_json::from_str(&self)?;
+      println!("addSegment, data: {}", data);
+      let all_segments = vec![data.meta_json.segments];
+      let mut segments = vec![]
+      for segment in all_segments {
+        segments.push(segment);
+      }
+      println!("addSegment, segments: {}", segments);
+      handle.add_segment(
+        &catalog.base_path, &segments
+      );
 
     Ok(())
   }
