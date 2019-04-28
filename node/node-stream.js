@@ -1,5 +1,6 @@
 const ndjson = require('ndjson')
 const p = require('path')
+const fs = require('fs')
 const { spawn } = require('child_process')
 const stream = require('stream')
 
@@ -17,7 +18,7 @@ function parse (data) {
   }
 }
 
-function main () {
+async function main () {
   let bin = process.argv[2]
   const { send, receive } = rpc(bin)
 
@@ -26,10 +27,11 @@ function main () {
   })
 
   const index = 'test_index'
-   //send(createIndex(index, schema()))
-   send(addDocuments(index, getDocs()))
- //send(query(index, 'hello'))
-  // send(addSegment(index, 'foo'))
+  send(createIndex(index, schema()))
+  send(addDocuments(index, getDocs()))
+  send(query(index, 'hello'))
+  let metaJson = await readFileFromIndexDir(index, 'meta.json')
+  if (metaJson) send(addSegment(index, metaJson))
 }
 
 function schema () {
@@ -123,6 +125,21 @@ function query (index, query) {
       query
     }
   }
+}
+
+async function readFileFromIndexDir (index, fileName) {
+  let path = p.join('./data', index, fileName)
+  console.log('path:', path)
+  let fileContent = new Promise((resolve, reject) => {
+    fs.readFile(path, {encoding: 'ascii'}, (err, data) => {
+      if (err) {
+        console.warn('Error:', err)
+        reject(err)
+      }
+      resolve(data)
+    })
+  })
+  return fileContent
 }
 
 function addSegment (index, metaJson) {

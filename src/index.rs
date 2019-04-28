@@ -189,8 +189,10 @@ impl IndexHandle {
 
     Ok(results)
   }
+
   pub fn add_segment(&mut self,path : &Path, data : &[u8]) -> Result<()> {
-    let directory = self.index.directory();
+    let mut directory = self.index.directory().clone();
+    println!("add_segment, directory: {:#?}", directory);
     directory.atomic_write(path, data);
     let read = directory.open_read(&path).unwrap();
     Ok(())

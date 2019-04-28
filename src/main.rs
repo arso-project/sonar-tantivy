@@ -132,10 +132,11 @@ impl Handle for Query {
 impl Handle for AddSegment {
   fn handle(&self, catalog: &mut IndexCatalog) -> Result<()> {
       let handle = catalog.get_index(&self.index)?;
-      let mut data = serde::to
-      handle.add_segment(
-        &catalog.base_path, 
-        ;
+      let mut data = serde_json::to_string(&self)?;
+      println!("addSegment, data: {:#?}", data);      
+      // handle.add_segment(
+      //   &catalog.base_path, 8
+      // );
 
     Ok(())
   }
