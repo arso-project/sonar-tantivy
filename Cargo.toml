@@ -5,10 +5,11 @@ authors = ["Franz Heinzmann (Frando) <frando@unbiskant.org>"]
 edition = "2018"
 
 [dependencies]
-tantivy = "0.9.1"
+tantivy = {path = "./tantivy"}
 serde_json = { version = "1.0.39", features = ["preserve_order"] }
 serde = { version = "1.0.90", features = ["derive"] }
 log = "0.4.6"
+uuid = "0.7.4"
 
 [dev-dependencies]
 tempdir = "0.3.7"
