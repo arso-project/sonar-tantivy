@@ -27,9 +27,9 @@ function main () {
 
   const index = 'test_index'
    //send(createIndex(index, schema()))
-   send(addDocuments(index, getDocs()))
- //send(query(index, 'hello'))
-  // send(addSegment(index, 'foo'))
+//send(addDocuments(index, getDocs()))
+ //send(query(index, 'konspirative'))
+send(addSegment(index, '9677d82f58c14524beefeddaca912359', 1))
 }
 
 function schema () {
@@ -78,8 +78,9 @@ function schema () {
 
 function getDocs () {
   return [
-    { id: '0', title: 'Hello, world!', body: 'hi there', tags: ['foo', 'bar'] },
-    { id: '1', title: 'Hello, moon!', body: 'nothing to see', tags: ['boo', 'baz'] }
+    { id: '0', title: 'konspirativ', body: 'eingefügt', tags: ['neu', 'segment'] }
+    //{ id: '0', title: 'Hello, world!', body: 'hi there', tags: ['foo', 'bar'] },
+    //{ id: '1', title: 'Hello, moon!', body: 'nothing to see', tags: ['boo', 'baz'] }
   ]
 }
 
@@ -125,12 +126,13 @@ function query (index, query) {
   }
 }
 
-function addSegment (index, metaJson) {
+function addSegment (index,uuid_string, max_doc) {
   return {
     type: 'AddSegment',
     payload: {
       index,
-      meta_json: metaJson
+      uuid_string,
+      max_doc
     }
   }
 }

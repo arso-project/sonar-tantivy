@@ -7,10 +7,9 @@ use tantivy::collector::TopDocs;
 use tantivy::query::QueryParser;
 use tantivy::schema::{Document, FieldValue, NamedFieldDocument, Schema, Value};
 use tantivy::{
-  self, Directory, Index, IndexMeta, IndexReader, IndexWriter, ReloadPolicy, Result, Segment,
-  SegmentId, SegmentMeta, TantivyError,
+  self, Directory, Index, IndexMeta, IndexReader, IndexWriter, ReloadPolicy, Result, SegmentId,
+  SegmentMeta, TantivyError,
 };
-use uuid::Uuid;
 
 pub struct IndexCatalog {
   pub base_path: PathBuf,
@@ -195,31 +194,33 @@ impl IndexHandle {
   }
   pub fn add_segment(&mut self, uuid_string: &str, max_doc: u32) -> Result<()> {
     let mut segments = self.index.searchable_segment_metas()?;
-    let segment_id = SegmentId::generate_from_string(uuid_string);
-    if !self.index.searchable_segment_ids()?.contains(&segment_id){
-      segments.push(SegmentMeta::new(
-      segment_id,
-      max_doc,
-    ));
-    let schema = self.index.schema();
-    // add the counter of docs in segment to the index counter
-    let opstamp = self.index.load_metas()?.opstamp + max_doc as u64;
-    let metas = IndexMeta {
-      segments,
-      schema,
-      opstamp,
-      payload: None,
-    };
-    let mut buffer = serde_json::to_vec_pretty(&metas)?;
-    // just for newline
-    writeln!(&mut buffer)?;
-    self.index.directory_mut()
-              .atomic_write(Path::new("meta.json"), &buffer[..])?;
+    let segment_id = SegmentId::generate_from_string(uuid_string)?;
+    if !self.index.searchable_segment_ids()?.contains(&segment_id) {
+      segments.push(SegmentMeta::new(segment_id, max_doc));
+      let schema = self.index.schema();
+      // add the counter of docs in segment to the index counter
+      let opstamp = self.index.load_metas()?.opstamp + max_doc as u64;
+      let metas = IndexMeta {
+        segments,
+        schema,
+        opstamp,
+        payload: None,
+      };
+      let mut buffer = serde_json::to_vec_pretty(&metas)?;
+      // just for newline
+      writeln!(&mut buffer)?;
+      self
+        .index
+        .directory_mut()
+        .atomic_write(Path::new("meta.json"), &buffer[..])?;
+    } else {
+      return Err(TantivyError::InvalidArgument("segment already indexed".to_string(),
+      ));
     }
-    else {
-      println!("This Segment is already in Index", )
+    if !self.index.searchable_segment_ids()?.contains(&segment_id) {
+      return Err(TantivyError::InvalidArgument("not possible to add segment".to_string(),
+      ));
     }
-    
     Ok(())
   }
 }
