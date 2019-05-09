@@ -1,16 +1,16 @@
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fs;
 use std::io;
-use std::path::{PathBuf, Path};
-use std::rc::Rc;
+use std::io::Write;
+use std::path::{Path, PathBuf};
 use tantivy::collector::TopDocs;
 use tantivy::query::QueryParser;
 use tantivy::schema::{Document, FieldValue, NamedFieldDocument, Schema, Value};
-
 use tantivy::{
-  self, Directory, Index, IndexReader, IndexWriter, ReloadPolicy, Result, TantivyError,
+  self, Directory, Index, IndexMeta, IndexReader, IndexWriter, ReloadPolicy, Result, Segment,
+  SegmentId, SegmentMeta, TantivyError,
 };
+use uuid::Uuid;
 
 pub struct IndexCatalog {
   pub base_path: PathBuf,
@@ -162,6 +162,10 @@ impl IndexHandle {
   }
 
   pub fn query(&mut self, query: &String, limit: u32) -> Result<Vec<(f32, NamedFieldDocument)>> {
+    let mut metas = self.index.load_metas().unwrap();
+    for meta in metas.segments {
+      println!("META: {:?}", meta);
+    }
     self.ensure_reader()?;
     let reader = self.reader.take().unwrap();
     let searcher = reader.searcher();
@@ -189,10 +193,33 @@ impl IndexHandle {
 
     Ok(results)
   }
-  pub fn add_segment(&mut self,path : &Path, data : &[u8]) -> Result<()> {
-    let directory = self.index.directory();
-    directory.atomic_write(path, data);
-    let read = directory.open_read(&path).unwrap();
+  pub fn add_segment(&mut self, uuid_string: &str, max_doc: u32) -> Result<()> {
+    let mut segments = self.index.searchable_segment_metas()?;
+    let segment_id = SegmentId::generate_from_string(uuid_string);
+    if !self.index.searchable_segment_ids()?.contains(&segment_id){
+      segments.push(SegmentMeta::new(
+      segment_id,
+      max_doc,
+    ));
+    let schema = self.index.schema();
+    // add the counter of docs in segment to the index counter
+    let opstamp = self.index.load_metas()?.opstamp + max_doc as u64;
+    let metas = IndexMeta {
+      segments,
+      schema,
+      opstamp,
+      payload: None,
+    };
+    let mut buffer = serde_json::to_vec_pretty(&metas)?;
+    // just for newline
+    writeln!(&mut buffer)?;
+    self.index.directory_mut()
+              .atomic_write(Path::new("meta.json"), &buffer[..])?;
+    }
+    else {
+      println!("This Segment is already in Index", )
+    }
+    
     Ok(())
   }
 }

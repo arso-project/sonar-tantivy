@@ -1,9 +1,9 @@
 use serde::{Deserialize, Serialize};
 use serde_json;
-use std::collections::HashMap;
 use tantivy::schema::{NamedFieldDocument, Schema, Value};
-use tantivy::{Result};
+use tantivy::{Result, SegmentMeta};
 use std::fmt;
+use std::path::Path;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Message {
@@ -79,5 +79,6 @@ impl QueryResponseDocument {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct AddSegment {
   pub index: String,
-  pub meta_json: String,
+  pub uuid_string: String,
+  pub max_doc : u32
 }

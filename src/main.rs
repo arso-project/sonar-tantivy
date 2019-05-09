@@ -12,13 +12,13 @@ mod index;
 /// - for safety, all index writers should be destroyed before (but there would be none usually - only for merges maybe)
 mod rpc;
 
-use serde_json;
 use serde::{Deserialize, Serialize};
+use serde_json;
 
 use std::io::{self, BufRead, Write};
-use std::path::PathBuf;
+use std::path::{PathBuf,Path};
 use tantivy::schema::FieldValue;
-use tantivy::{Document, Directory, Index, Result, TantivyError};
+use tantivy::{Directory, Document, Index, Result, Segment, TantivyError};
 
 use crate::index::*;
 use crate::rpc::*;
@@ -46,9 +46,10 @@ fn main() -> io::Result<()> {
   Ok(())
 }
 
-
-fn reply<T> (response: T) -> io::Result<()> 
-where T: Serialize {
+fn reply<T>(response: T) -> io::Result<()>
+where
+  T: Serialize,
+{
   let string = serde_json::to_string(&response)?;
   // println!("SEND! {:?}", string);
   println!("{}", string);
@@ -115,10 +116,8 @@ impl Handle for Query {
         results.push(doc)
       }
     }
-    
-    let response = QueryResponse {
-      results
-    };
+
+    let response = QueryResponse { results };
 
     reply(response);
     Ok(())
@@ -127,16 +126,13 @@ impl Handle for Query {
 
 // TODO Matze: Idee ist das die Segmentfiles bereits im richtigen Indexordner liegen(Das soll später über node passieren).
 // TODO Matze: Es gibt die managed.json dort wollen wir die Segment ID reinschreiben und dann das Segment comitten
-// Ich hab angefangen den Handler und die Funktion dafür zu schreiben, das ist allerdings gerade mehr ein rumprobieren.  
+// Ich hab angefangen den Handler und die Funktion dafür zu schreiben, das ist allerdings gerade mehr ein rumprobieren.
 
 impl Handle for AddSegment {
   fn handle(&self, catalog: &mut IndexCatalog) -> Result<()> {
       let handle = catalog.get_index(&self.index)?;
-      let mut data = serde::to
-      handle.add_segment(
-        &catalog.base_path, 
-        ;
-
+      let result = handle.add_segment(&self.uuid_string, self.max_doc)?;
+      
     Ok(())
   }
 }
