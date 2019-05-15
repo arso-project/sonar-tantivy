@@ -239,29 +239,32 @@ fn create_empty_indexcatalog() {
 fn create_index()  {
   let base_path = PathBuf::from(r"./test");
   fs::remove_dir_all(&base_path);
+  /// create a new index catalog, index catalog is a hashmap with indexname as key and index as value
   let mut catalog = IndexCatalog::new(base_path).unwrap();
+  /// create a new schema with one textfield called "field_str" and build this schema 
   let mut schema_builder = Schema::builder();
   let field_str = schema_builder.add_text_field("field_str", STRING);
   let schema = schema_builder.build();
-
+  /// create two new indexes to compare the segment_ids after we call the add_segment method 
   catalog.create_index("testindex1".to_string(), schema.clone()).unwrap();
   catalog.create_index("testindex2".to_string(), schema).unwrap();
-
-  let mut doc = Document::new();
-  doc.add_text(field_str, "addsegment");
 
   let index_handle = catalog.get_index(&"testindex1".to_string()).unwrap();
   index_handle.ensure_writer();
   let mut writer = index_handle.writer.take().unwrap();
+
+  /// create a new tantivy Document to push this doc to index1
+  let mut doc = Document::new();
+  doc.add_text(field_str, "addsegment");
   writer.add_document(doc);
   writer.commit();
 
   let mut index1 = index_handle.index.clone();
   let mut allsegments = index1.searchable_segment_ids().unwrap();
-
-  let moving_segment = allsegments.pop().unwrap();
-  let mut index_handle2 = catalog.get_index(&"testindex2".to_string()).unwrap();
+  let index_handle2 = catalog.get_index(&"testindex2".to_string()).unwrap();
   let index2 = index_handle2.index.clone();
+  /// get the segment_id for the segment in index1 and copy the files in index2 dir
+  let moving_segment = allsegments.pop().unwrap();
   let uuid_string = moving_segment.uuid_string();
   let exts = [
     ".fast",
@@ -279,6 +282,7 @@ fn create_index()  {
     let mut path2 = PathBuf::from(pathstr2);
     let result = fs::copy(path1, path2).unwrap();
   }
+  
   index_handle2.add_segment(&uuid_string, 1).unwrap();
   assert_eq!(index2.searchable_segment_ids().unwrap().pop().unwrap().uuid_string(), uuid_string);
   
