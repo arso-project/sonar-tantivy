@@ -236,7 +236,7 @@ fn create_empty_indexcatalog() {
   assert_eq!(catalog.indexes.len(), 0);
 }
 #[test]
-fn create_index() -> Result<()> {
+fn create_index()  {
   let base_path = PathBuf::from(r"./test");
   fs::remove_dir_all(&base_path);
   let mut catalog = IndexCatalog::new(base_path).unwrap();
@@ -244,13 +244,13 @@ fn create_index() -> Result<()> {
   let field_str = schema_builder.add_text_field("field_str", STRING);
   let schema = schema_builder.build();
 
-  catalog.create_index("testindex1".to_string(), schema.clone())?;
-  catalog.create_index("testindex2".to_string(), schema)?;
+  catalog.create_index("testindex1".to_string(), schema.clone()).unwrap();
+  catalog.create_index("testindex2".to_string(), schema).unwrap();
 
   let mut doc = Document::new();
   doc.add_text(field_str, "addsegment");
 
-  let index_handle = catalog.get_index(&"testindex1".to_string())?;
+  let index_handle = catalog.get_index(&"testindex1".to_string()).unwrap();
   index_handle.ensure_writer();
   let mut writer = index_handle.writer.take().unwrap();
   writer.add_document(doc);
@@ -261,6 +261,7 @@ fn create_index() -> Result<()> {
 
   let moving_segment = allsegments.pop().unwrap();
   let mut index_handle2 = catalog.get_index(&"testindex2".to_string()).unwrap();
+  let index2 = index_handle2.index.clone();
   let uuid_string = moving_segment.uuid_string();
   let exts = [
     ".fast",
@@ -276,22 +277,9 @@ fn create_index() -> Result<()> {
     let pathstr2 = ["./test/testindex2/", &uuid_string, ext].concat();
     let mut path1 = PathBuf::from(pathstr1);
     let mut path2 = PathBuf::from(pathstr2);
-    let result = fs::copy(path1, path2);
-    println!("RUN LOOP {:?}", result);
+    let result = fs::copy(path1, path2).unwrap();
   }
-  index_handle2.add_segment(&uuid_string, 1);
-  index_handle2.ensure_reader();
-  let tantivy_results = index_handle2.query(&"addsegment".to_string(), 10).unwrap();
-  let mut results = vec![];
-    for (score, doc) in tantivy_results {
-      let result = QueryResponseDocument::from_tantivy_doc(score.clone(), doc);
-      if let Ok(doc) = result {
-        results.push(doc)
-      }
-    }
-
-    let response = QueryResponse { results };
-    println!("RESPONSE: {:?}", response);
-
-  Ok(())
+  index_handle2.add_segment(&uuid_string, 1).unwrap();
+  assert_eq!(index2.searchable_segment_ids().unwrap().pop().unwrap().uuid_string(), uuid_string);
+  
 }
