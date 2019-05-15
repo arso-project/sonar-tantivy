@@ -1,85 +1,156 @@
+extern crate serde_json;
+
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
-use serde_json;
-use tantivy::schema::{NamedFieldDocument, Schema, Value};
-use tantivy::{Result, SegmentMeta};
-use std::fmt;
-use std::path::Path;
+use std::any::Any;
+use std::collections::HashMap;
+use std::fmt::Debug;
+use std::io::{self, BufRead, Write};
+use std::rc::Rc;
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Message {
-  pub id: String,
-  #[serde(flatten)]
-  pub payload: MessageType,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(tag = "type", content = "payload")]
-pub enum MessageType {
-  CreateIndex(CreateIndex),
-  AddDocuments(AddDocuments),
-  Query(Query),
-  AddSegment(AddSegment),
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct CreateIndex {
-  pub name: String,
-  // This is later casted into tantivy::schema::Schema
-  pub schema: serde_json::Value,
-  // pub schema: String,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct AddDocuments {
-  pub index: String,
-  // pub documents: Vec<Document>
-  pub documents: Vec<Vec<(String, Value)>>,
-}
-
-// #[derive(Serialize, Deserialize, Debug)]
-// pub struct Document {
-//   pub id: String,
-//   pub title: String,
-//   pub body: String,
-//   pub tags: Vec<String>
+// pub enum Result<T> {
+//     Ok(T),
+//     Err(String),
 // }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Query {
-  pub index: String,
-  pub query: String,
-  pub limit: Option<u32>,
-}
-#[derive(Serialize, Debug)]
-pub struct QueryResponse {
-  pub results: Vec<QueryResponseDocument>,
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Request {
+    id: u64,
+    msgtype: String,
+    msg: serde_json::Value,
 }
 
-#[derive(Serialize)]
-pub struct QueryResponseDocument {
-  pub score: f32,
-  pub doc: NamedFieldDocument,
-}
+impl Request {
+    pub fn message<T>(&self) -> Result<T, serde_json::Error>
+    where
+        T: DeserializeOwned,
+    {
+        let req: Result<T, serde_json::Error> = serde_json::from_value(self.msg.clone());
+        req
+    }
 
-impl fmt::Debug for QueryResponseDocument {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "QueryResponseDocument")
+    pub fn empty() -> Request {
+        Request {
+            id: 0,
+            msgtype: "".to_string(),
+            msg: serde_json::Value::Null,
+        }
     }
 }
 
-
-impl QueryResponseDocument {
-  pub fn from_tantivy_doc (score: f32, doc: NamedFieldDocument) -> Result<QueryResponseDocument> {
-    Ok(QueryResponseDocument {
-      score,
-      doc
-    })
-  }
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Response<T>
+where
+    T: Serialize + Debug,
+{
+    request_id: u64,
+    msg: Option<Box<T>>,
+    err: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct AddSegment {
-  pub index: String,
-  pub uuid_string: String,
-  pub max_doc : u32
+impl<T> Response<T>
+where
+    T: Any + Serialize + Debug,
+{
+    pub fn new(request: Request, msg: T) -> Response<T>
+    where
+        T: Serialize,
+    {
+        Response {
+            request_id: request.id,
+            msg: Some(Box::new(msg)),
+            err: None,
+        }
+    }
+
+    pub fn error(request: Request, error: String) -> Response<T> {
+        Response {
+            request_id: request.id,
+            msg: None,
+            err: Some(error),
+        }
+    }
+
+    pub fn ok(request: Request, msg: T) -> Response<T> {
+        Response {
+            request_id: request.id,
+            msg: Some(Box::new(msg)),
+            err: None,
+        }
+    }
+
+    pub fn to_json(&self) -> serde_json::Result<String> {
+        serde_json::to_string(&self)
+    }
+
+    pub fn empty(request: Request) -> Response<T> {
+        Response {
+            request_id: request.id,
+            msg: None,
+            err: None,
+        }
+    }
+}
+
+pub struct Rpc<State, T, E>
+where
+    T: Any + Serialize + Debug,
+    E: std::string::ToString,
+{
+    state: State,
+    methods: HashMap<String, Rc<Fn(&mut State, &Request) -> Result<T, E>>>,
+}
+
+impl<State, T, E> Rpc<State, T, E>
+where
+    T: Any + Serialize + Debug,
+    E: std::string::ToString,
+{
+    pub fn new(state: State) -> Rpc<State, T, E> {
+        Rpc {
+            state,
+            methods: HashMap::new(),
+        }
+    }
+
+    pub fn at(&mut self, name: &str, method: &'static Fn(&mut State, &Request) -> Result<T, E>) {
+        let rc_method = Rc::new(method);
+        self.methods.insert(name.to_string(), rc_method);
+    }
+
+    pub fn handle_call(&mut self, request: Request) -> Response<T> {
+        if let Some(method) = self.methods.get(&request.msgtype) {
+            let msg = method(&mut self.state, &request);
+            match msg {
+                Ok(msg) => return Response::ok(request, msg),
+                Err(err) => return Response::error(request, err.to_string()),
+            }
+        } else {
+            return Response::error(request, "Method not found.".to_string());
+        }
+    }
+
+    pub fn handle_json(&mut self, json: &str) -> Response<T> {
+        let result: serde_json::Result<Request> = serde_json::from_str(json);
+        match result {
+            Ok(request) => self.handle_call(request),
+            Err(err) => Response::error(Request::empty(), err.to_string()),
+        }
+    }
+
+    pub fn stdio_loop(&mut self) {
+        let stdin = io::stdin();
+        let mut stdout = io::stdout();
+        for line in stdin.lock().lines() {
+            let line = line.expect("Could not read line from standard in");
+            eprintln!("LINE: {:?}", line);
+            let response = self.handle_json(&line);
+            eprintln!("RESPONSE {:?}", response);
+            if let Ok(json) = serde_json::to_string(&response) {
+                println!("{}", json)
+            } else {
+                eprintln!("Could not serialize response.");
+            }
+        }
+    }
 }

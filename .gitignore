@@ -5,3 +5,5 @@
 /test
 Cargo.lock
 data
+_foo
+_old
