@@ -5,7 +5,7 @@ authors = ["Franz Heinzmann (Frando) <frando@unbiskant.org>"]
 edition = "2018"
 
 [dependencies]
-tantivy = { git = "https://github.com/osuiowq/tantivy" }
+tantivy = { git = "https://github.com/osuiowq/tantivy.git", branch = "sonar" }
 serde_json = { version = "1.0.39", features = ["preserve_order"] }
 serde = { version = "1.0.90", features = ["derive"] }
 log = "0.4.6"
