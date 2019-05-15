@@ -67,6 +67,7 @@ impl fmt::Debug for QueryResponseDocument {
     }
 }
 
+
 impl QueryResponseDocument {
   pub fn from_tantivy_doc (score: f32, doc: NamedFieldDocument) -> Result<QueryResponseDocument> {
     Ok(QueryResponseDocument {

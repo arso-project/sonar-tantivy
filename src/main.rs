@@ -24,8 +24,6 @@ use crate::index::*;
 use crate::rpc::*;
 
 fn main() -> io::Result<()> {
-  println!("Hello, world!");
-
   let base_path = PathBuf::from(r"./data");
   let mut catalog = IndexCatalog::new(base_path)?;
 
@@ -124,15 +122,10 @@ impl Handle for Query {
   }
 }
 
-// TODO Matze: Idee ist das die Segmentfiles bereits im richtigen Indexordner liegen(Das soll später über node passieren).
-// TODO Matze: Es gibt die managed.json dort wollen wir die Segment ID reinschreiben und dann das Segment comitten
-// Ich hab angefangen den Handler und die Funktion dafür zu schreiben, das ist allerdings gerade mehr ein rumprobieren.
-
 impl Handle for AddSegment {
   fn handle(&self, catalog: &mut IndexCatalog) -> Result<()> {
       let handle = catalog.get_index(&self.index)?;
-      let result = handle.add_segment(&self.uuid_string, self.max_doc)?;
-      
+      let result = handle.add_segment(&self.uuid_string, self.max_doc)?;     
     Ok(())
   }
 }

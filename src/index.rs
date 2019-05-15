@@ -1,3 +1,5 @@
+#[macro_use]
+use crate::rpc::{QueryResponseDocument, QueryResponse};
 use std::collections::HashMap;
 use std::fs;
 use std::io;
@@ -5,7 +7,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use tantivy::collector::TopDocs;
 use tantivy::query::QueryParser;
-use tantivy::schema::{Document, FieldValue, NamedFieldDocument, Schema, Value};
+use tantivy::schema::*;
 use tantivy::{
   self, Directory, Index, IndexMeta, IndexReader, IndexWriter, ReloadPolicy, Result, SegmentId,
   SegmentMeta, TantivyError,
@@ -194,7 +196,7 @@ impl IndexHandle {
   }
   pub fn add_segment(&mut self, uuid_string: &str, max_doc: u32) -> Result<()> {
     let mut segments = self.index.searchable_segment_metas()?;
-    let segment_id = SegmentId::generate_from_string(uuid_string)?;
+    let segment_id = SegmentId::generate_from_string(uuid_string);
     if !self.index.searchable_segment_ids()?.contains(&segment_id) {
       segments.push(SegmentMeta::new(segment_id, max_doc));
       let schema = self.index.schema();
@@ -214,13 +216,82 @@ impl IndexHandle {
         .directory_mut()
         .atomic_write(Path::new("meta.json"), &buffer[..])?;
     } else {
-      return Err(TantivyError::InvalidArgument("segment already indexed".to_string(),
+      return Err(TantivyError::InvalidArgument(
+        "segment already indexed".to_string(),
       ));
     }
     if !self.index.searchable_segment_ids()?.contains(&segment_id) {
-      return Err(TantivyError::InvalidArgument("not possible to add segment".to_string(),
+      return Err(TantivyError::InvalidArgument(
+        "not possible to add segment".to_string(),
       ));
     }
     Ok(())
   }
+}
+#[test]
+fn create_empty_indexcatalog() {
+  let base_path = PathBuf::from(r"./test");
+  fs::remove_dir_all(&base_path);
+  let catalog = IndexCatalog::new(base_path).unwrap();
+  assert_eq!(catalog.indexes.len(), 0);
+}
+#[test]
+fn create_index() -> Result<()> {
+  let base_path = PathBuf::from(r"./test");
+  fs::remove_dir_all(&base_path);
+  let mut catalog = IndexCatalog::new(base_path).unwrap();
+  let mut schema_builder = Schema::builder();
+  let field_str = schema_builder.add_text_field("field_str", STRING);
+  let schema = schema_builder.build();
+
+  catalog.create_index("testindex1".to_string(), schema.clone())?;
+  catalog.create_index("testindex2".to_string(), schema)?;
+
+  let mut doc = Document::new();
+  doc.add_text(field_str, "addsegment");
+
+  let index_handle = catalog.get_index(&"testindex1".to_string())?;
+  index_handle.ensure_writer();
+  let mut writer = index_handle.writer.take().unwrap();
+  writer.add_document(doc);
+  writer.commit();
+
+  let mut index1 = index_handle.index.clone();
+  let mut allsegments = index1.searchable_segment_ids().unwrap();
+
+  let moving_segment = allsegments.pop().unwrap();
+  let mut index_handle2 = catalog.get_index(&"testindex2".to_string()).unwrap();
+  let uuid_string = moving_segment.uuid_string();
+  let exts = [
+    ".fast",
+    ".fieldnorm",
+    ".idx",
+    ".pos",
+    ".posidx",
+    ".store",
+    ".term",
+  ];
+  for ext in exts.iter() {
+    let pathstr1 = ["./test/testindex1/", &uuid_string, ext].concat();
+    let pathstr2 = ["./test/testindex2/", &uuid_string, ext].concat();
+    let mut path1 = PathBuf::from(pathstr1);
+    let mut path2 = PathBuf::from(pathstr2);
+    let result = fs::copy(path1, path2);
+    println!("RUN LOOP {:?}", result);
+  }
+  index_handle2.add_segment(&uuid_string, 1);
+  index_handle2.ensure_reader();
+  let tantivy_results = index_handle2.query(&"addsegment".to_string(), 10).unwrap();
+  let mut results = vec![];
+    for (score, doc) in tantivy_results {
+      let result = QueryResponseDocument::from_tantivy_doc(score.clone(), doc);
+      if let Ok(doc) = result {
+        results.push(doc)
+      }
+    }
+
+    let response = QueryResponse { results };
+    println!("RESPONSE: {:?}", response);
+
+  Ok(())
 }
