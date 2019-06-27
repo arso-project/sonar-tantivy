@@ -143,9 +143,7 @@ where
         let mut stdout = io::stdout();
         for line in stdin.lock().lines() {
             let line = line.expect("Could not read line from standard in");
-            eprintln!("LINE: {:?}", line);
             let response = self.handle_json(&line);
-            eprintln!("RESPONSE {:?}", response);
             if let Ok(json) = serde_json::to_string(&response) {
                 println!("{}", json)
             } else {

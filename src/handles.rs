@@ -1,4 +1,4 @@
-use crate::index::IndexCatalog;
+use crate::index::{IndexCatalog, SegmentInfo};
 use crate::rpc::Request;
 use failure::Error;
 use serde::{Deserialize, Serialize};
@@ -120,13 +120,26 @@ pub fn query(catalog: &mut IndexCatalog, request: &Request) -> Result<Res, Error
 #[derive(Serialize, Deserialize, Debug)]
 pub struct AddSegment {
     pub index: String,
-    pub uuid_string: String,
+    pub segment_id: String,
     pub max_doc: u32,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct AddSegments {
+    pub index: String,
+    pub segments: Vec<SegmentInfo>,
 }
 
 pub fn add_segment(catalog: &mut IndexCatalog, request: &Request) -> Result<Res, Error> {
     let req: AddSegment = request.message()?;
     let handle = catalog.get_index(&req.index)?;
-    handle.add_segment(&req.uuid_string, req.max_doc)?;
+    handle.add_segment(&req.segment_id, req.max_doc)?;
+    Ok(Res::empty())
+}
+
+pub fn add_segments(catalog: &mut IndexCatalog, request: &Request) -> Result<Res, Error> {
+    let req: AddSegments = request.message()?;
+    let handle = catalog.get_index(&req.index)?;
+    handle.add_segments(req.segments)?;
     Ok(Res::empty())
 }

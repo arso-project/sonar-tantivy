@@ -1,5 +1,6 @@
 #[macro_use]
 use std::collections::HashMap;
+use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io;
 use std::io::Write;
@@ -15,6 +16,12 @@ use tantivy::{
 pub struct IndexCatalog {
     pub base_path: PathBuf,
     pub indexes: HashMap<String, IndexHandle>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SegmentInfo {
+    pub uuid: String,
+    pub max_doc: u32,
 }
 
 impl IndexCatalog {
@@ -123,8 +130,6 @@ impl IndexHandle {
         let schema = self.index.schema();
         let mut writer = self.writer.take().unwrap();
 
-        println!("docs {:#?}", docs);
-
         for doc in docs {
             let mut document = Document::default();
             for (field_name, value) in doc {
@@ -135,7 +140,9 @@ impl IndexHandle {
             }
 
             let opstamp = writer.add_document(document);
+            eprintln!("added {:?}", opstamp);
         }
+        eprintln!("now commit");
         writer.commit()?;
         self.writer = Some(writer);
         Ok(())
@@ -163,9 +170,6 @@ impl IndexHandle {
 
     pub fn query(&mut self, query: &String, limit: u32) -> Result<Vec<(f32, NamedFieldDocument)>> {
         let mut metas = self.index.load_metas().unwrap();
-        for meta in metas.segments {
-            println!("META: {:?}", meta);
-        }
         self.ensure_reader()?;
         let reader = self.reader.take().unwrap();
         let searcher = reader.searcher();
@@ -193,9 +197,18 @@ impl IndexHandle {
 
         Ok(results)
     }
+
+    pub fn add_segments(&mut self, segments: Vec<SegmentInfo>) -> Result<()> {
+        for segment in segments {
+            self.add_segment(&segment.uuid, segment.max_doc);
+        }
+        Ok(())
+    }
+
     pub fn add_segment(&mut self, uuid_string: &str, max_doc: u32) -> Result<()> {
         let mut segments = self.index.searchable_segment_metas()?;
         let segment_id = SegmentId::generate_from_string(uuid_string);
+
         if !self.index.searchable_segment_ids()?.contains(&segment_id) {
             segments.push(SegmentMeta::new(segment_id, max_doc));
             let schema = self.index.schema();
@@ -218,6 +231,7 @@ impl IndexHandle {
                 "segment already indexed".to_string(),
             ));
         }
+
         if !self.index.searchable_segment_ids()?.contains(&segment_id) {
             return Err(TantivyError::InvalidArgument(
                 "not possible to add segment".to_string(),
