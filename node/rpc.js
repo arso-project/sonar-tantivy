@@ -54,8 +54,6 @@ class RustPipe {
       this.onmessage(msg)
     })
 
-    // this.sender.pipe(this.proc.stdin)
-    this.sender.pipe(process.stdout)
     this.sender.on('data', d => debugN('SEND', d))
   }
 

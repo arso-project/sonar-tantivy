@@ -11,7 +11,9 @@
   "dependencies": {
     "debug": "^4.1.1",
     "duplexify": "^4.0.0",
-    "hyperdrive": "^10.0.0-rc3"
+    "hyperdrive": "^10.0.0-rc3",
+    "mirror-folder": "^3.0.0",
+    "pump": "^3.0.0"
   },
   "devDependencies": {
     "protocol-buffers": "^4.1.0"
