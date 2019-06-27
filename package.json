@@ -1,13 +1,13 @@
 {
-  "name": "sonar-node",
+  "name": "sonar",
   "version": "0.0.1",
   "description": "",
-  "main": "node-stream.js",
+  "main": "node/index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
     "debug": "^4.1.1",
     "duplexify": "^4.0.0",

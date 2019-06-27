@@ -4,6 +4,8 @@
 /tantivy
 /test
 Cargo.lock
+package-lock.json
 data
 _foo
 _old
+node_modules
