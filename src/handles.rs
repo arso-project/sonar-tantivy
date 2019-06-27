@@ -17,6 +17,7 @@ use tantivy::schema::{NamedFieldDocument, Value};
 pub enum Res {
     Empty(Empty),
     QueryResponse(QueryResponse),
+    QueryMultiResponse(QueryMultiResponse),
     Bool(bool),
 }
 
@@ -73,10 +74,18 @@ pub struct Query {
     pub query: String,
     pub limit: Option<u32>,
 }
-
+#[derive(Serialize, Deserialize, Debug)]
+pub struct QueryMulti {
+    pub indexes: Vec<String>,
+    pub query: String,
+}
 #[derive(Serialize, Debug)]
 pub struct QueryResponse {
     pub results: Vec<QueryResponseDocument>,
+}
+#[derive(Serialize, Debug)]
+pub struct QueryMultiResponse {
+    pub results: Vec<(String,Vec<QueryResponseDocument>)>,
 }
 
 impl QueryResponseDocument {
@@ -115,6 +124,25 @@ pub fn query(catalog: &mut IndexCatalog, request: &Request) -> Result<Res, Error
     let response = QueryResponse { results };
     // Ok(response)
     Ok(Res::QueryResponse(response))
+}
+pub fn query_multi(catalog: &mut IndexCatalog, request: &Request) -> Result<Res, Error> {
+    let req: QueryMulti = request.message()?;
+    let tantivy_results = catalog.query_multi(&req.query, &req.indexes)?;
+    let mut results = vec![];
+    for (index, inner_tantivy_results) in tantivy_results {
+        let mut inner_results = vec![];
+        for (score, doc) in inner_tantivy_results {
+            let result = QueryResponseDocument::from_tantivy_doc(score.clone(), doc);
+            if let Ok(doc) = result {
+                inner_results.push(doc);
+            }
+        }
+        results.push((index, inner_results));
+    }
+
+    let response = QueryMultiResponse { results };
+    // Ok(response)
+    Ok(Res::QueryMultiResponse(response))
 }
 
 #[derive(Serialize, Deserialize, Debug)]

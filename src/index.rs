@@ -103,14 +103,14 @@ impl IndexCatalog {
         }?;
         Ok(handle)
     }
-    pub fn multi_query(&mut self, query : &String,  index_collection : Vec<String>) -> Result<Vec<(String,Vec<(f32,NamedFieldDocument)>)>>{
+    pub fn query_multi(&mut self, query : &String,  indexes : &Vec<String>) -> Result<Vec<(String,Vec<(f32,NamedFieldDocument)>)>>{
         let mut results = Vec::new();
-        for entry in index_collection{
+        for entry in indexes{
             let index_key = entry;
-            if self.indexes.contains_key(&index_key){
+            if self.indexes.contains_key(index_key){
                let index =  self.get_index(&index_key.to_string())?;
                let res = index.query(query, 100)?;
-               results.push((index_key,res));
+               results.push((index_key.clone(),res));
             }
         }
         Ok(results)
@@ -199,6 +199,9 @@ impl IndexHandle {
         }
         let query_parser = QueryParser::for_index(&self.index, fields);
         let query = query_parser.parse_query(query)?;
+
+
+
         let top_docs = searcher.search(&query, &TopDocs::with_limit(limit as usize))?;
 
         let mut results = vec![];

@@ -4,6 +4,11 @@ const docs = [
   { id: '1', title: 'Hello, moon!', body: 'nothing to see', tags: ['boo', 'baz'] }
 ]
 
+const docs2 = [
+  { id: '0', title: 'Hello, mars', body: 'hot hot hot', tags: ['foo', 'bar'] },
+  { id: '1', title: 'Hello, jupiter!', body: 'cold cold cold', tags: ['boo', 'baz'] }
+]
+
 const schema = [
   {
     name: 'title',
@@ -45,4 +50,4 @@ const schema = [
   }
 ]
 
-module.exports = { docs, schema }
+module.exports = { docs, docs2, schema }

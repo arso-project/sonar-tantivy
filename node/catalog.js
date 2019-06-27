@@ -31,6 +31,10 @@ module.exports = class IndexCatalog {
   async has (name) {
     return this.pipe.request('index_exists', name)
   }
+
+  multiQuery (query, indexes) {
+    return this.pipe.request('query_multi', { indexes, query })
+  }
 }
 
 class Index {
@@ -40,7 +44,7 @@ class Index {
   }
 
   async query (query) {
-    return this.pipe.request('query', { index: this.name, query: 'Hello' })
+    return this.pipe.request('query', { index: this.name, query })
   }
 
   async addDocuments (documents) {
