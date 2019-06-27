@@ -103,6 +103,18 @@ impl IndexCatalog {
         }?;
         Ok(handle)
     }
+    pub fn multi_query(&mut self, query : &String,  index_collection : Vec<String>) -> Result<Vec<(String,Vec<(f32,NamedFieldDocument)>)>>{
+        let mut results = Vec::new();
+        for entry in index_collection{
+            let index_key = entry;
+            if self.indexes.contains_key(&index_key){
+               let index =  self.get_index(&index_key.to_string())?;
+               let res = index.query(query, 100)?;
+               results.push((index_key,res));
+            }
+        }
+        Ok(results)
+    }
 }
 
 pub struct IndexHandle {
