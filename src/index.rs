@@ -68,7 +68,7 @@ impl IndexCatalog {
                         // println!("Loaded index: {}", &name);
                         self.indexes.insert(name, handle);
                     }
-                    Err(err) => println!(
+                    Err(err) => eprintln!(
                         "Opening index {:?} failed with error: {:#?}",
                         entry.path(),
                         err
@@ -76,7 +76,7 @@ impl IndexCatalog {
                 }
             }
         } else {
-            println!(
+            eprintln!(
                 "Path in data dir, but not an index: {:?}",
                 &path_to_metajson
             )
@@ -90,7 +90,6 @@ impl IndexCatalog {
         let index = Index::create_in_dir(&index_path, schema)?;
         let handle = IndexHandle::new(index);
         self.indexes.insert(name, handle);
-        println!("Create index!");
         Ok(())
     }
 
@@ -103,14 +102,18 @@ impl IndexCatalog {
         }?;
         Ok(handle)
     }
-    pub fn query_multi(&mut self, query : &String,  indexes : &Vec<String>) -> Result<Vec<(String,Vec<(f32,NamedFieldDocument)>)>>{
+    pub fn query_multi(
+        &mut self,
+        query: &String,
+        indexes: &Vec<String>,
+    ) -> Result<Vec<(String, Vec<(f32, NamedFieldDocument)>)>> {
         let mut results = Vec::new();
-        for entry in indexes{
+        for entry in indexes {
             let index_key = entry;
-            if self.indexes.contains_key(index_key){
-               let index =  self.get_index(&index_key.to_string())?;
-               let res = index.query(query, 100)?;
-               results.push((index_key.clone(),res));
+            if self.indexes.contains_key(index_key) {
+                let index = self.get_index(&index_key.to_string())?;
+                let res = index.query(query, 100)?;
+                results.push((index_key.clone(), res));
             }
         }
         Ok(results)
@@ -147,14 +150,14 @@ impl IndexHandle {
             for (field_name, value) in doc {
                 match schema.get_field(&field_name) {
                     Some(field) => document.add(FieldValue::new(field, value.clone())),
-                    None => println!("Invalid field: {}", field_name),
+                    None => eprintln!("Invalid field: {}", field_name),
                 }
             }
 
             let opstamp = writer.add_document(document);
-            eprintln!("added {:?}", opstamp);
+            // eprintln!("added {:?}", opstamp);
         }
-        eprintln!("now commit");
+        // eprintln!("now commit");
         writer.commit()?;
         self.writer = Some(writer);
         Ok(())
@@ -199,8 +202,6 @@ impl IndexHandle {
         }
         let query_parser = QueryParser::for_index(&self.index, fields);
         let query = query_parser.parse_query(query)?;
-
-
 
         let top_docs = searcher.search(&query, &TopDocs::with_limit(limit as usize))?;
 

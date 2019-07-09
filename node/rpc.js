@@ -1,23 +1,33 @@
 const { spawn } = require('child_process')
-const debug = require('debug')
 const { Transform } = require('stream')
 const EOL = require('os').EOL
+const { Duplex } = require('stream')
+const pump = require('pump')
+const Duplexify = require('duplexify')
 
-const debugR = debug('pipe-rust')
-const debugN = debug('pipe-node')
+const debug = require('debug')('rpc-pipe')
 
-class RustPipe {
-  constructor (command) {
+module.exports = commandPipe
+
+function commandPipe (command) {
+  const proc = spawn(command, [], { shell: true })
+  const rpc = new RpcPipe()
+
+  logStream(proc.stderr, 'proc.stderr')
+
+  const stream = Duplexify(proc.stdin, proc.stdout)
+  pump(rpc, stream, rpc)
+
+  return rpc
+}
+
+class RpcPipe extends Duplexify {
+  constructor () {
+    super()
     this.counter = 0
-    this.command = command || 'cargo run'
     this.callbacks = {}
-    this.ready()
-  }
 
-  ready () {
-    this.proc = spawn(this.command, [], { shell: true })
-
-    this.receiver = new Transform({
+    this.in = new Transform({
       objectMode: true,
       transform (chunk, encoding, done) {
         let str = chunk.toString()
@@ -25,15 +35,15 @@ class RustPipe {
         lines.forEach(line => {
           try {
             this.push(JSON.parse(line))
-          } catch (e) {
-            debugN('Could not parse message: %s (Reason: %s)', str, e.toString())
+          } catch (err) {
+            debug('error', 'Could not parse message: %s (Reason: %s)', str, err.toString())
           }
         })
         done()
       }
     })
 
-    this.sender = new Transform({
+    this.out = new Transform({
       objectMode: true,
       transform (chunk, enc, done) {
         let json = JSON.stringify(chunk)
@@ -42,21 +52,16 @@ class RustPipe {
       }
     })
 
-    this.sender.pipe(this.proc.stdin)
+    logStream(this.out, 'out')
+    logStream(this.in, 'in')
 
-    this.proc.stderr.on('data', d => debugR(d.toString()))
-    this.proc.stdout.pipe(this.receiver)
+    this.setReadable(this.out)
+    this.setWritable(this.in)
 
-    this.receiver.on('error', err => {
-      debugN('ERROR: ', err.toString())
-    })
-    this.receiver.on('data', msg => {
-      this.onmessage(msg)
-    })
+    // pump(this.out, this.proc.stdin)
+    // pump(this.proc.stdout, this.in)
 
-    // this.sender.pipe(this.proc.stdin)
-    this.sender.pipe(process.stdout)
-    this.sender.on('data', d => debugN('SEND', d))
+    this.in.on('data', msg => this._push(msg))
   }
 
   send (type, msg, cb) {
@@ -71,7 +76,7 @@ class RustPipe {
       msg
     }
 
-    this.sender.write(message)
+    this.out.write(message)
   }
 
   async request (type, msg) {
@@ -83,13 +88,20 @@ class RustPipe {
     })
   }
 
-  onmessage (msg) {
+  _push (msg) {
     let id = msg.request_id
     if (!this.callbacks[id]) {
-      debugN('Error: No callback', msg)
+      this.emit('error', new Error('Error: No callback for message: ' + JSON.stringify(msg)))
     }
     this.callbacks[id](msg.err, msg.msg)
   }
 }
 
-module.exports = RustPipe
+function logStream (stream, name) {
+  stream.on('data', msg => debug(name, stringify(msg)))
+  stream.on('error', msg => debug('ERROR', name, msg))
+  function stringify (msg) {
+    if (Buffer.isBuffer(msg)) return msg.toString()
+    return msg
+  }
+}
