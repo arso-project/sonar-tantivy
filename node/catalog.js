@@ -3,10 +3,12 @@ const p = require('path')
 const hyperdrive = require('hyperdrive')
 const crypto = require('hypercore-crypto')
 
+const cargoToml = p.resolve(p.join(__dirname, '../Cargo.toml'))
+
 module.exports = class IndexCatalog {
-  constructor (path) {
+  constructor (path, opts) {
     this.path = p.resolve(path)
-    this.pipe = new Pipe(`cargo run -- ${this.path}`)
+    this.pipe = new Pipe(`cargo run --manifest-path=${cargoToml} -- ${this.path}`)
   }
 
   async open (name) {
