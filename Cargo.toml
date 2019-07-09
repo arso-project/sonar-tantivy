@@ -11,6 +11,7 @@ serde = { version = "1.0.90", features = ["derive"] }
 log = "0.4.6"
 uuid = "0.7.4"
 failure = "0.1.5"
+varinteger = "1.0.6"
 
 [dev-dependencies]
 tempdir = "0.3.7"

@@ -30,8 +30,11 @@ class RpcPipe extends Duplexify {
     this.in = new Transform({
       objectMode: true,
       transform (chunk, encoding, done) {
+        // console.log('CHUNK LENGHT', chunk.length)
         let str = chunk.toString()
+        // console.log('CHUNK STR LENGTH', str.length)
         let lines = str.split(EOL).filter(f => f)
+        // console.log('LINES LENGTH', lines.length)
         lines.forEach(line => {
           try {
             this.push(JSON.parse(line))
@@ -101,7 +104,9 @@ function logStream (stream, name) {
   stream.on('data', msg => debug(name, stringify(msg)))
   stream.on('error', msg => debug('ERROR', name, msg))
   function stringify (msg) {
-    if (Buffer.isBuffer(msg)) return msg.toString()
+    if (Buffer.isBuffer(msg)) msg = msg.toString()
+    if (typeof msg === 'object') msg = JSON.stringify(msg)
+    if (msg.length > 80) msg = msg.substring(0, 100) + '...'
     return msg
   }
 }

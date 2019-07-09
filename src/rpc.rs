@@ -1,4 +1,5 @@
 extern crate serde_json;
+extern crate varinteger;
 
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -145,10 +146,16 @@ where
             let line = line.expect("Could not read line from standard in");
             let response = self.handle_json(&line);
             if let Ok(json) = serde_json::to_string(&response) {
-                println!("{}", json)
+                eprintln!("JSON LENGTH: {:?}", json.len());
+                println!("{}", json);
             } else {
                 eprintln!("Could not serialize response.");
             }
         }
     }
+}
+
+fn decode_message(msg: &str) {
+    let mut msg_length = 0u64;
+    let header_len = varinteger::decode(msg.as_bytes(), &mut msg_length);
 }
