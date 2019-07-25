@@ -16,74 +16,82 @@ use std::rc::Rc;
 // }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub enum Message<T> where
-    T: Serialize + Debug
+pub enum Message<Req, Res>
+// where
+//     Req: Serialize + DeserializeOwned + Debug + Clone,
+//     Res: Serialize + DeserializeOwned + Debug + Clone,
 {
-    Request(Request),
-    Response(Response<T>)
+    Request(Request<Req>),
+    Response(Response<Res>)
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Request {
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Request<Req>
+// where 
+//     Req: Serialize + DeserializeOwned + Debug + Clone,
+{
     id: u64,
     method: String,
-    msg: serde_json::Value,
+    msg: Option<Box<Req>>
 }
 
-impl Request {
-    pub fn message<T>(&self) -> Result<T, serde_json::Error>
-    where
-        T: DeserializeOwned,
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Response<Res>
+// where
+//     Res: Serialize + DeserializeOwned + Debug + Clone,
+{
+    request_id: u64,
+    msg: Option<Box<Res>>,
+    err: Option<String>,
+}
+
+impl<Req> Request<Req>
+where
+    Req: Serialize + DeserializeOwned + Debug + Clone,
+{
+    pub fn message(&self) -> Option<Req>
     {
-        let req: Result<T, serde_json::Error> = serde_json::from_value(self.msg.clone());
-        req
+        match self.msg {
+            Some(req) => Some(*req),
+            None => None
+        }
     }
 
-    pub fn empty() -> Request {
+    pub fn empty() -> Request<()> {
         Request {
             id: 0,
             method: "".to_string(),
-            msg: serde_json::Value::Null,
+            msg: None
         }
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Response<T>
+impl<Res> Response<Res>
 where
-    T: Serialize + Debug,
+    Res: Serialize + Debug,
 {
-    request_id: u64,
-    msg: Option<Box<T>>,
-    err: Option<String>,
-}
-
-impl<T> Response<T>
-where
-    T: Any + Serialize + Debug,
-{
-    pub fn new(request: Request, msg: T) -> Response<T>
+    pub fn new(request_id: u64, msg: Res) -> Response<Res>
     where
-        T: Serialize,
+        Res: Serialize,
     {
         Response {
-            request_id: request.id,
+            request_id: request_id,
             msg: Some(Box::new(msg)),
             err: None,
         }
     }
 
-    pub fn error(request: Request, error: String) -> Response<T> {
+    pub fn error(request_id: u64, error: String) -> Response<Res> {
         Response {
-            request_id: request.id,
+            request_id: request_id,
             msg: None,
             err: Some(error),
         }
     }
 
-    pub fn ok(request: Request, msg: T) -> Response<T> {
+    pub fn ok(request_id: u64, msg: Res) -> Response<Res> {
         Response {
-            request_id: request.id,
+            request_id: request_id,
             msg: Some(Box::new(msg)),
             err: None,
         }
@@ -93,59 +101,80 @@ where
         serde_json::to_string(&self)
     }
 
-    pub fn empty(request: Request) -> Response<T> {
+    pub fn empty(request_id: u64) -> Response<Res> {
         Response {
-            request_id: request.id,
+            request_id: request_id,
             msg: None,
             err: None,
         }
     }
 }
 
-pub struct Rpc<State, T, E>
+pub struct Rpc<State, Req, Res, E>
 where
-    T: Any + Serialize + Debug,
-    E: std::string::ToString,
+    E: std::string::ToString + 'static,
+    Res: Serialize + Debug,
+    Req: DeserializeOwned + Serialize + Debug
 {
     state: State,
-    methods: HashMap<String, Rc<Fn(&mut State, &Request) -> Result<T, E>>>
+    methods: HashMap<String, Rc<dyn Fn(&mut State, &Request<Req>) -> Result<Res, E>>>,
+    callbacks: Vec<Rc<dyn Fn(&mut State, &Response<Res>)>>
 }
 
-impl<State, T, E> Rpc<State, T, E>
+impl<State, Req, Res, E> Rpc<State, Req, Res, E>
 where
-    T: Any + Serialize + Debug,
-    E: std::string::ToString,
+    E: std::string::ToString + 'static,
+    Res: Serialize + Debug,
+    Req: DeserializeOwned + Serialize + Debug
 {
-    pub fn new(state: State) -> Rpc<State, T, E> {
+    pub fn new(state: State) -> Rpc<State, Req, Res, E> {
         Rpc {
             state,
-            methods: HashMap::new()
+            methods: HashMap::new(),
+            callbacks: vec![]
         }
     }
 
-    pub fn at(&mut self, name: &str, method: &'static Fn(&mut State, &Request) -> Result<T, E>) {
+    pub fn at(&mut self, name: &str, method: &'static dyn Fn(&mut State, &Request<Req>) -> Result<Res, E>) {
         let rc_method = Rc::new(method);
         self.methods.insert(name.to_string(), rc_method);
     }
 
-    pub fn handle_call(&mut self, request: Request) -> Response<T> {
+    pub fn handle_call(&mut self, request: Request<Req>) -> Response<Res> {
+        let request_id = request.id.clone();
         if let Some(method) = self.methods.get(&request.method) {
             let msg = method(&mut self.state, &request);
             match msg {
-                Ok(msg) => return Response::ok(request, msg),
-                Err(err) => return Response::error(request, err.to_string()),
+                Ok(msg) => return Response::ok(request_id, msg),
+                Err(err) => return Response::error(request_id, err.to_string()),
             }
         } else {
-            return Response::error(request, "Method not found.".to_string());
+            return Response::error(request_id, "Method not found.".to_string());
         }
     }
 
-    pub fn handle_json(&mut self, json: &str) -> Response<T> {
-        let result: serde_json::Result<Request> = serde_json::from_str(json);
+    pub fn handle_json(&mut self, json: &str) -> Response<Res> {
+        let result: serde_json::Result<Request<Req>> = serde_json::from_str(json);
         match result {
             Ok(request) => self.handle_call(request),
-            Err(err) => Response::error(Request::empty(), err.to_string()),
+            Err(err) => Response::error(0, err.to_string()),
         }
+    }
+
+    pub fn request(&mut self, method: &str, msg: Req, callback: Option<&'static dyn Fn(&mut State, &Response<Res>) -> Result<Res, E>>) {
+        let id = match callback {
+            Some(callback) => {
+                let rc_callback = Rc::new(callback);
+                self.callbacks.push(rc_callback);
+                self.callbacks.len() - 1
+            },
+            None => 0
+        };
+        self.send(Message::Request(Request {
+            id: id as u64,
+            method: method.to_string(),
+            msg: Some(Box::new(msg))
+        }));
     }
 
     pub fn stdio_loop(&mut self) {
@@ -162,12 +191,8 @@ where
         }
     }
 
-    // pub fn request (&self, request: Request, callback: Fn(&mut State, ) {
-    // pub fn request(&mut self, request: Request, callback: &'static Fn(&mut State, &Request) -> Result<T, E>) {
-    // methods: HashMap<String, Rc<Fn(&mut State, &Request) -> Result<T, E>>>
-    // }
 
-    fn send (&self, msg: Message<T>) where T: Serialize + Debug {
+    fn send (&self, msg: Message<Req, Res>) {
         let json = match msg {
             Message::Request(ref req) => serde_json::to_string(&req),
             Message::Response(ref res) => serde_json::to_string(&res),
@@ -179,11 +204,11 @@ where
     }
 }
 
-fn hello () -> Request {
+fn hello () -> Request<()> {
     Request {
         id: 0,
         method: "hello".to_string(),
-        msg: serde_json::Value::Null
+        msg: None
     }
 }
 
