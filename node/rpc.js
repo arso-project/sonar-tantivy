@@ -1,9 +1,8 @@
 const { spawn } = require('child_process')
-const { Transform } = require('stream')
-const EOL = require('os').EOL
-const { Duplex } = require('stream')
 const pump = require('pump')
 const Duplexify = require('duplexify')
+const { Transform } = require('stream')
+const split2 = require('split2')
 
 const debug = require('debug')('rpc-pipe')
 
@@ -11,46 +10,65 @@ module.exports = commandPipe
 
 function commandPipe (command) {
   const proc = spawn(command, [], { shell: true })
-  const rpc = new RpcPipe()
-
   logStream(proc.stderr, 'proc.stderr')
 
-  const stream = Duplexify(proc.stdin, proc.stdout)
-  pump(rpc, stream, rpc)
+  // logStream(proc.stdin, 'proc.stdin')
+  // logStream(proc.stdout, 'proc.stdout')
 
-  return rpc
+  const procStream = Duplexify(proc.stdin, proc.stdout)
+  const rpcStream = new RpcPipe()
+
+  rpcStream.at('foobar', (msg, cb) => {
+    console.log('YEAH!', msg)
+    if (msg === 'hi') cb(null, 'heia')
+    else cb()
+  })
+
+  pump(procStream, rpcStream, procStream)
+
+  return rpcStream
 }
+
+const methods = Symbol('methods')
+const callbacks = Symbol('callbacks')
+const counter = Symbol('counter')
 
 class RpcPipe extends Duplexify {
   constructor () {
     super()
-    this.counter = 0
-    this.callbacks = {}
+    this[counter] = 0
+    this[callbacks] = []
+    this[methods] = []
 
-    this.in = new Transform({
-      objectMode: true,
-      transform (chunk, encoding, done) {
-        // console.log('CHUNK LENGHT', chunk.length)
-        let str = chunk.toString()
-        // console.log('CHUNK STR LENGTH', str.length)
-        let lines = str.split(EOL).filter(f => f)
-        // console.log('LINES LENGTH', lines.length)
-        lines.forEach(line => {
-          try {
-            this.push(JSON.parse(line))
-          } catch (err) {
-            debug('error', 'Could not parse message: %s (Reason: %s)', str, err.toString())
-          }
-        })
-        done()
+    this.in = split2(parse)
+    function parse (chunk) {
+      chunk = String(chunk)
+      if (!chunk) return
+      try {
+        return JSON.parse(chunk)
+      } catch (err) {
+          debug('Error: Could not parse message: %s (Reason: %s)', chunk.toString(), err.toString())
       }
-    })
+    }
+
+    // this.in = split2('\n').pipe(new Transform({
+    //   objectMode: true,
+    //   transform (chunk, encoding, done) {
+    //     console.log(chunk, chunk.toString())
+    //     try {
+    //       this.push(JSON.parse(chunk.toString()))
+    //     } catch (err) {
+    //       debug('Error: Could not parse message: %s (Reason: %s)', chunk.toString(), err.toString())
+    //     }
+    //     done()
+    //   }
+    // }))
 
     this.out = new Transform({
       objectMode: true,
       transform (chunk, enc, done) {
         let json = JSON.stringify(chunk)
-        this.push(json + EOL)
+        this.push(json + '\n')
         done()
       }
     })
@@ -61,42 +79,77 @@ class RpcPipe extends Duplexify {
     this.setReadable(this.out)
     this.setWritable(this.in)
 
-    // pump(this.out, this.proc.stdin)
-    // pump(this.proc.stdout, this.in)
-
-    this.in.on('data', msg => this._push(msg))
+    this.out.cork()
+    this.in.on('data', msg => this._handle(msg))
   }
 
-  send (type, msg, cb) {
-    let id = ++this.counter
+  at (method, cb) {
+    this[methods][method] = cb
+  }
+
+  sendRequest (method, msg, cb) {
+    let id = ++this[counter]
     if (cb) {
-      this.callbacks[id] = cb
+      this[callbacks][id] = cb
     }
 
     let message = {
       id,
-      msgtype: type,
+      method,
       msg
     }
 
     this.out.write(message)
   }
 
-  async request (type, msg) {
+  sendResponse (request, err, msg) {
+    let message = {
+      request_id: request.id,
+      err,
+      msg
+    }
+
+    this.out.write(message)
+  }
+
+  async request (method, msg) {
     return new Promise((resolve, reject) => {
-      this.send(type, msg, (err, data) => {
+      this.sendRequest(method, msg, (err, data) => {
         if (err) reject(err)
         else resolve(data)
       })
     })
   }
 
-  _push (msg) {
-    let id = msg.request_id
-    if (!this.callbacks[id]) {
-      this.emit('error', new Error('Error: No callback for message: ' + JSON.stringify(msg)))
+  _handle (message) {
+    console.log('handle', message)
+    if (message.method) this._onRequest(message)
+    else if (message.request_id) this._onResponse(message)
+    else this.emit('error', new Error('Invalid message: ' + JSON.stringify(message)))
+  }
+
+  _onRequest (message) {
+    const { method, id, msg } = message
+
+    if (method === 'hello') return this.out.uncork()
+
+    if (!this[methods][method]) {
+      this.emit('error', new Error('No handler for message: ' + JSON.stringify(message)))
     }
-    this.callbacks[id](msg.err, msg.msg)
+    this[methods][method](msg, (err, response) => {
+      this.sendResponse(message, err, response)
+    })
+  }
+
+  _onResponse (message) {
+    const { request_id: requestId, err, msg } = message
+
+    if (!this[callbacks][requestId]) {
+      this.emit('error', new Error('No callback for message: ' + JSON.stringify(message)))
+    }
+    this[callbacks][requestId](err, msg)
+    // Todo: Keep the callbacks to allow streaming?
+    delete this[callbacks][requestId]
   }
 }
 

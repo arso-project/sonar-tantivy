@@ -3,6 +3,7 @@ extern crate varinteger;
 
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use std::any::Any;
 use std::collections::HashMap;
 use std::fmt::Debug;
@@ -14,10 +15,18 @@ use std::rc::Rc;
 //     Err(String),
 // }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub enum Message<T> where
+    T: Serialize + Debug
+{
+    Request(Request),
+    Response(Response<T>)
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Request {
     id: u64,
-    msgtype: String,
+    method: String,
     msg: serde_json::Value,
 }
 
@@ -33,7 +42,7 @@ impl Request {
     pub fn empty() -> Request {
         Request {
             id: 0,
-            msgtype: "".to_string(),
+            method: "".to_string(),
             msg: serde_json::Value::Null,
         }
     }
@@ -99,7 +108,7 @@ where
     E: std::string::ToString,
 {
     state: State,
-    methods: HashMap<String, Rc<Fn(&mut State, &Request) -> Result<T, E>>>,
+    methods: HashMap<String, Rc<Fn(&mut State, &Request) -> Result<T, E>>>
 }
 
 impl<State, T, E> Rpc<State, T, E>
@@ -110,7 +119,7 @@ where
     pub fn new(state: State) -> Rpc<State, T, E> {
         Rpc {
             state,
-            methods: HashMap::new(),
+            methods: HashMap::new()
         }
     }
 
@@ -120,7 +129,7 @@ where
     }
 
     pub fn handle_call(&mut self, request: Request) -> Response<T> {
-        if let Some(method) = self.methods.get(&request.msgtype) {
+        if let Some(method) = self.methods.get(&request.method) {
             let msg = method(&mut self.state, &request);
             match msg {
                 Ok(msg) => return Response::ok(request, msg),
@@ -141,21 +150,44 @@ where
 
     pub fn stdio_loop(&mut self) {
         let stdin = io::stdin();
-        let mut stdout = io::stdout();
+        // let mut stdout = io::stdout();
+        let handshake = hello();
+        self.send(Message::Request(handshake));
+
         for line in stdin.lock().lines() {
             let line = line.expect("Could not read line from standard in");
+            eprintln!("RECV: {}", line);
             let response = self.handle_json(&line);
-            if let Ok(json) = serde_json::to_string(&response) {
-                eprintln!("JSON LENGTH: {:?}", json.len());
-                println!("{}", json);
-            } else {
-                eprintln!("Could not serialize response.");
-            }
+            self.send(Message::Response(response))
+        }
+    }
+
+    // pub fn request (&self, request: Request, callback: Fn(&mut State, ) {
+    // pub fn request(&mut self, request: Request, callback: &'static Fn(&mut State, &Request) -> Result<T, E>) {
+    // methods: HashMap<String, Rc<Fn(&mut State, &Request) -> Result<T, E>>>
+    // }
+
+    fn send (&self, msg: Message<T>) where T: Serialize + Debug {
+        let json = match msg {
+            Message::Request(ref req) => serde_json::to_string(&req),
+            Message::Response(ref res) => serde_json::to_string(&res),
+        };
+        match json {
+            Ok(str) => println!("{}", str),
+            Err(err) => eprintln!("Could not serialize message.")
         }
     }
 }
 
-fn decode_message(msg: &str) {
-    let mut msg_length = 0u64;
-    let header_len = varinteger::decode(msg.as_bytes(), &mut msg_length);
+fn hello () -> Request {
+    Request {
+        id: 0,
+        method: "hello".to_string(),
+        msg: serde_json::Value::Null
+    }
 }
+
+// fn decode_message(msg: &str) {
+//     let mut msg_length = 0u64;
+//     let header_len = varinteger::decode(msg.as_bytes(), &mut msg_length);
+// }
