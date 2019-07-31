@@ -1,6 +1,6 @@
 {
-  "name": "sonar",
-  "version": "0.0.1",
+  "name": "@archipel/sonar",
+  "version": "0.0.2",
   "description": "",
   "main": "node/index.js",
   "scripts": {
