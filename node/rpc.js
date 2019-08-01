@@ -122,7 +122,6 @@ class RpcPipe extends Duplexify {
   }
 
   _handle (message) {
-    console.log('handle', message)
     if (message.method) this._onRequest(message)
     else if (message.request_id) this._onResponse(message)
     else this.emit('error', new Error('Invalid message: ' + JSON.stringify(message)))

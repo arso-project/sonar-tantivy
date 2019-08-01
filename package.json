@@ -1,10 +1,10 @@
 {
   "name": "@archipel/sonar",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "",
   "main": "node/index.js",
   "scripts": {
-    "install": "cargo build --release"
+    "install": "cargo build"
   },
   "author": "",
   "license": "MIT",
