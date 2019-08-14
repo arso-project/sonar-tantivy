@@ -1,7 +1,7 @@
 const Pipe = require('./rpc')
 const p = require('path')
-const hyperdrive = require('hyperdrive')
-const crypto = require('hypercore-crypto')
+// const hyperdrive = require('hyperdrive')
+// const crypto = require('hypercore-crypto')
 
 const cargoToml = p.resolve(p.join(__dirname, '../Cargo.toml'))
 

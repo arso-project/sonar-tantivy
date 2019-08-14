@@ -1,6 +1,6 @@
 {
   "name": "@archipel/sonar",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "",
   "main": "node/index.js",
   "scripts": {
@@ -11,7 +11,6 @@
   "dependencies": {
     "debug": "^4.1.1",
     "duplexify": "^4.1.1",
-    "hyperdrive": "^10.0.0-rc3",
     "pump": "^3.0.0",
     "split2": "^3.1.1"
   },
