@@ -1,6 +1,6 @@
 [package]
-name = "sonar"
-version = "0.1.0"
+name = "sonar-search"
+version = "0.0.4"
 authors = ["Franz Heinzmann (Frando) <frando@unbiskant.org>"]
 edition = "2018"
 

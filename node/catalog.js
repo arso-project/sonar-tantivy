@@ -23,9 +23,12 @@ module.exports = class IndexCatalog {
   }
 
   async openOrCreate (name, schema) {
+    console.log('openOrCreate', name)
     if (await this.has(name)) {
+      console.log('has!', name)
       return this.open(name)
     } else {
+      console.log('create!', name)
       return this.create(name, schema)
     }
   }

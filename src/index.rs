@@ -47,6 +47,7 @@ impl IndexCatalog {
     fn load_all(&mut self) {
         //let mut index_paths = vec![];
         if let Ok(entries) = fs::read_dir(&self.base_path) {
+            // eprintln!("load all {:?}", entries);
             for entry in entries {
                 if let Ok(entry) = entry {
                     self.load_from_dir_entry(entry);
@@ -65,7 +66,7 @@ impl IndexCatalog {
                 match result {
                     Ok(index) => {
                         let handle = IndexHandle::new(index);
-                        // println!("Loaded index: {}", &name);
+                        // eprintln!("Loaded index: {}", &name);
                         self.indexes.insert(name, handle);
                     }
                     Err(err) => eprintln!(
@@ -84,6 +85,7 @@ impl IndexCatalog {
     }
 
     pub fn create_index(&mut self, name: String, schema: Schema) -> Result<()> {
+        // eprintln!("create_index {}", name);
         let mut index_path = self.base_path.clone();
         index_path.push(&name);
         fs::create_dir_all(&index_path);
@@ -94,6 +96,9 @@ impl IndexCatalog {
     }
 
     pub fn get_index(&mut self, name: &String) -> Result<&mut IndexHandle> {
+        // eprintln!("get_index {}", name);
+        // eprintln!("indexes: {:?}", self.indexes.keys());
+        // eprintln!("get_index", name);
         let handle: &mut IndexHandle = match self.indexes.get_mut(name) {
             Some(handle) => Ok(handle),
             None => Err(TantivyError::InvalidArgument(

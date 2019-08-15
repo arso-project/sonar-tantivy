@@ -111,6 +111,7 @@ impl fmt::Debug for QueryResponseDocument {
 
 pub fn query(catalog: &mut IndexCatalog, request: &Request) -> Result<Res, Error> {
     let req: Query = request.message()?;
+    // eprintln!("QUERY {:?}", req);
     let handle = catalog.get_index(&req.index)?;
     let tantivy_results = handle.query(&req.query, req.limit.unwrap_or(10))?;
     let mut results = vec![];
