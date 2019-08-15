@@ -10,3 +10,4 @@ _foo
 _old
 node_modules
 .vscode
+/dist
