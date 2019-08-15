@@ -51,7 +51,7 @@ function build (opts, cb) {
   cb = once(cb)
   const { stdout, stderr } = exec(`cargo build --release`, (err) => {
     if (err) return cb(err)
-    const binary = p.join(__dirname, 'target', 'release', BINARY_NAME)
+    const binary = p.join(__dirname, '..', 'target', 'release', BINARY_NAME)
     fs.copyFile(binary, p.join(opts.dest, BINARY_NAME), err => {
       if (err) return cb(err)
       cb()
