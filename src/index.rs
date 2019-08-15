@@ -263,22 +263,25 @@ impl IndexHandle {
 }
 #[test]
 fn create_empty_indexcatalog() {
-    let base_path = PathBuf::from(r"./test");
-    fs::remove_dir_all(&base_path);
+    // let base_path = PathBuf::from(r"./test");
+    let tmp_dir = tempdir::TempDir::new("test").unwrap();
+    let base_path = tmp_dir.path().to_path_buf();
     let catalog = IndexCatalog::new(base_path).unwrap();
     assert_eq!(catalog.indexes.len(), 0);
 }
 #[test]
 fn create_index() {
-    let base_path = PathBuf::from(r"./test");
-    fs::remove_dir_all(&base_path);
-    /// create a new index catalog, index catalog is a hashmap with indexname as key and index as value
-    let mut catalog = IndexCatalog::new(base_path).unwrap();
-    /// create a new schema with one textfield called "field_str" and build this schema
+    let tmp_dir = tempdir::TempDir::new("test").unwrap();
+    let base_path = tmp_dir.path().to_path_buf();
+
+    // create a new index catalog, index catalog is a hashmap with indexname as key and index as value
+    let mut catalog = IndexCatalog::new(base_path.clone()).unwrap();
+
+    // create a new schema with one textfield called "field_str" and build this schema
     let mut schema_builder = Schema::builder();
     let field_str = schema_builder.add_text_field("field_str", STRING);
     let schema = schema_builder.build();
-    /// create two new indexes to compare the segment_ids after we call the add_segment method
+    // create two new indexes to compare the segment_ids after we call the add_segment method
     catalog
         .create_index("testindex1".to_string(), schema.clone())
         .unwrap();
@@ -290,7 +293,7 @@ fn create_index() {
     index_handle.ensure_writer();
     let mut writer = index_handle.writer.take().unwrap();
 
-    /// create a new tantivy Document to push this doc to index1
+    // create a new tantivy Document to push this doc to index1
     let mut doc = Document::new();
     doc.add_text(field_str, "addsegment");
     writer.add_document(doc);
@@ -300,7 +303,7 @@ fn create_index() {
     let mut allsegments = index1.searchable_segment_ids().unwrap();
     let index_handle2 = catalog.get_index(&"testindex2".to_string()).unwrap();
     let index2 = index_handle2.index.clone();
-    /// get the segment_id for the segment in index1 and copy the files in index2 dir
+    // get the segment_id for the segment in index1 and copy the files in index2 dir
     let moving_segment = allsegments.pop().unwrap();
     let uuid_string = moving_segment.uuid_string();
     let exts = [
@@ -313,10 +316,14 @@ fn create_index() {
         ".term",
     ];
     for ext in exts.iter() {
-        let pathstr1 = ["./test/testindex1/", &uuid_string, ext].concat();
-        let pathstr2 = ["./test/testindex2/", &uuid_string, ext].concat();
-        let mut path1 = PathBuf::from(pathstr1);
-        let mut path2 = PathBuf::from(pathstr2);
+        let mut path1 = base_path.clone();
+        path1.push(
+            ["testindex1/", &uuid_string, ext].concat()
+        );
+        let mut path2 = base_path.clone();
+        path2.push(
+            ["testindex2/", &uuid_string, ext].concat()
+        );
         let result = fs::copy(path1, path2).unwrap();
     }
 
