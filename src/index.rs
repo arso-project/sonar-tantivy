@@ -1,16 +1,16 @@
-#[macro_use]
 use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io;
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use once_cell::sync::Lazy;
 use tantivy::collector::TopDocs;
 use tantivy::query::QueryParser;
 use tantivy::schema::*;
 use tantivy::{
-    self, Directory, Index, IndexMeta, IndexReader, IndexWriter, ReloadPolicy, Result, SegmentId,
-    SegmentMeta, TantivyError,
+    self, Directory, Index, IndexMeta, IndexReader, IndexWriter, ReloadPolicy, SegmentId,
+    Result, TantivyError,
 };
 
 pub struct IndexCatalog {
@@ -88,7 +88,7 @@ impl IndexCatalog {
         // eprintln!("create_index {}", name);
         let mut index_path = self.base_path.clone();
         index_path.push(&name);
-        fs::create_dir_all(&index_path);
+        fs::create_dir_all(&index_path)?;
         let index = Index::create_in_dir(&index_path, schema)?;
         let handle = IndexHandle::new(index);
         self.indexes.insert(name, handle);
@@ -159,7 +159,7 @@ impl IndexHandle {
                 }
             }
 
-            let opstamp = writer.add_document(document);
+            let _opstamp = writer.add_document(document);
             // eprintln!("added {:?}", opstamp);
         }
         // eprintln!("now commit");
@@ -189,7 +189,6 @@ impl IndexHandle {
     }
 
     pub fn query(&mut self, query: &String, limit: u32) -> Result<Vec<(f32, NamedFieldDocument)>> {
-        let mut metas = self.index.load_metas().unwrap();
         self.ensure_reader()?;
         let reader = self.reader.take().unwrap();
         let searcher = reader.searcher();
@@ -221,17 +220,22 @@ impl IndexHandle {
 
     pub fn add_segments(&mut self, segments: Vec<SegmentInfo>) -> Result<()> {
         for segment in segments {
-            self.add_segment(&segment.uuid, segment.max_doc);
+            self.add_segment(&segment.uuid, segment.max_doc)?;
         }
         Ok(())
     }
 
     pub fn add_segment(&mut self, uuid_string: &str, max_doc: u32) -> Result<()> {
         let mut segments = self.index.searchable_segment_metas()?;
-        let segment_id = SegmentId::generate_from_string(uuid_string);
+        let segment_id = SegmentId::from_uuid_string(uuid_string)
+            .map_err(|_err| TantivyError::InvalidArgument("Not a valid UUID string".to_string()))?;
 
-        if !self.index.searchable_segment_ids()?.contains(&segment_id) {
-            segments.push(SegmentMeta::new(segment_id, max_doc));
+        let existing_segment_ids = self.index
+           .searchable_segment_ids()?;
+	
+	if !existing_segment_ids.contains(&segment_id) {
+            let meta = self.index.inventory().new_segment_meta(segment_id, max_doc as u32);
+            segments.push(meta);
             let schema = self.index.schema();
             // add the counter of docs in segment to the index counter
             let opstamp = self.index.load_metas()?.opstamp + max_doc as u64;
@@ -241,12 +245,7 @@ impl IndexHandle {
                 opstamp,
                 payload: None,
             };
-            let mut buffer = serde_json::to_vec_pretty(&metas)?;
-            // just for newline
-            writeln!(&mut buffer)?;
-            self.index
-                .directory_mut()
-                .atomic_write(Path::new("meta.json"), &buffer[..])?;
+            save_metas(&metas, self.index.directory_mut())?;
         } else {
             return Err(TantivyError::InvalidArgument(
                 "segment already indexed".to_string(),
@@ -261,6 +260,18 @@ impl IndexHandle {
         Ok(())
     }
 }
+
+/// Copied from tantivy/src/core/mod.rs
+pub static META_FILEPATH: Lazy<&'static Path> = Lazy::new(|| Path::new("meta.json"));
+
+/// Copied from segment_updater.rs in tantivy.
+fn save_metas(metas: &IndexMeta, directory: &mut dyn Directory) -> Result<()> {
+    let mut buffer = serde_json::to_vec_pretty(metas)?;
+    writeln!(&mut buffer)?;
+    directory.atomic_write(&META_FILEPATH, &buffer[..])?;
+    Ok(())
+}
+
 #[test]
 fn create_empty_indexcatalog() {
     // let base_path = PathBuf::from(r"./test");
@@ -270,7 +281,8 @@ fn create_empty_indexcatalog() {
     assert_eq!(catalog.indexes.len(), 0);
 }
 #[test]
-fn create_index() {
+fn move_segment() {
+    println!("start");
     let tmp_dir = tempdir::TempDir::new("test").unwrap();
     let base_path = tmp_dir.path().to_path_buf();
 
@@ -286,23 +298,25 @@ fn create_index() {
         .create_index("testindex1".to_string(), schema.clone())
         .unwrap();
     catalog
-        .create_index("testindex2".to_string(), schema)
+        .create_index("testindex2".to_string(), schema.clone())
         .unwrap();
 
-    let index_handle = catalog.get_index(&"testindex1".to_string()).unwrap();
-    index_handle.ensure_writer();
-    let mut writer = index_handle.writer.take().unwrap();
+    let handle1 = catalog.get_index(&"testindex1".to_string()).unwrap();
+    handle1.ensure_writer().unwrap();
+    let mut writer1 = handle1.writer.take().unwrap();
 
     // create a new tantivy Document to push this doc to index1
     let mut doc = Document::new();
-    doc.add_text(field_str, "addsegment");
-    writer.add_document(doc);
-    writer.commit();
+    doc.add_text(field_str, "sea");
+    writer1.add_document(doc);
+    writer1.commit().unwrap();
 
-    let mut index1 = index_handle.index.clone();
+    let index1 = handle1.index.clone();
     let mut allsegments = index1.searchable_segment_ids().unwrap();
-    let index_handle2 = catalog.get_index(&"testindex2".to_string()).unwrap();
-    let index2 = index_handle2.index.clone();
+
+    let handle2= catalog.get_index(&"testindex2".to_string()).unwrap();
+    let index2 = handle2.index.clone();
+
     // get the segment_id for the segment in index1 and copy the files in index2 dir
     let moving_segment = allsegments.pop().unwrap();
     let uuid_string = moving_segment.uuid_string();
@@ -324,10 +338,10 @@ fn create_index() {
         path2.push(
             ["testindex2/", &uuid_string, ext].concat()
         );
-        let result = fs::copy(path1, path2).unwrap();
+        let _result = fs::copy(path1, path2).unwrap();
     }
 
-    index_handle2.add_segment(&uuid_string, 1).unwrap();
+    handle2.add_segment(&uuid_string, 1).unwrap();
     assert_eq!(
         index2
             .searchable_segment_ids()
@@ -337,4 +351,38 @@ fn create_index() {
             .uuid_string(),
         uuid_string
     );
+    
+    let len = search(&index1, vec![field_str], "sea");
+    assert_eq!(len, 1);
+    let len = search(&index1, vec![field_str], "foo");
+    assert_eq!(len, 0);
+    let len = search(&index2, vec![field_str], "sea");
+    assert_eq!(len, 1);
+
+
+    fn search (index: &Index, fields: Vec<Field>, query: &str) -> usize {
+        let searcher = index
+            .reader_builder()
+            .reload_policy(ReloadPolicy::OnCommit)
+            .try_into().unwrap()
+            .searcher();
+
+        let query_parser = QueryParser::for_index(&index, fields);
+
+        // QueryParser may fail if the query is not in the right
+        // format. For user facing applications, this can be a problem.
+        // A ticket has been opened regarding this problem.
+        let query = query_parser.parse_query(query).unwrap();
+
+        let top_docs = searcher.search(&query, &TopDocs::with_limit(10)).unwrap();
+
+        top_docs.len()
+
+        // println!("results {:?}", top_docs.len());
+        // for (_score, doc_address) in top_docs {
+        //     let retrieved_doc = searcher.doc(doc_address).unwrap();
+        //     println!("{}", index.schema().to_json(&retrieved_doc));
+        // }
+        // println!("done");
+    }
 }

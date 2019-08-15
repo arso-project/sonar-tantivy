@@ -1,4 +1,3 @@
-#[macro_use]
 extern crate failure;
 use crate::index::IndexCatalog;
 use rpc::Rpc;
@@ -24,11 +23,12 @@ mod rpc;
 fn main() -> io::Result<()> {
     let args: Vec<String> = env::args().collect();
     if args.len() != 2 {
-        panic!("Expect one argument (path)")
+        eprintln!("USAGE: ");
+        ::std::process::exit(1);
     }
 
     let base_path = PathBuf::from(&args[1]);
-    let mut catalog = IndexCatalog::new(base_path)?;
+    let catalog = IndexCatalog::new(base_path)?;
     let mut rpc = Rpc::new(catalog);
     rpc.at("create_index", &handles::create_index);
     rpc.at("index_exists", &handles::index_exists);
@@ -36,6 +36,7 @@ fn main() -> io::Result<()> {
     rpc.at("query", &handles::query);
     rpc.at("query_multi", &handles::query_multi);
     rpc.at("add_segment", &handles::add_segment);
+    rpc.at("add_segments", &handles::add_segments);
     rpc.stdio_loop();
     Ok(())
 }

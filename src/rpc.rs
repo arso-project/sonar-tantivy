@@ -3,11 +3,10 @@ extern crate varinteger;
 
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use std::any::Any;
 use std::collections::HashMap;
 use std::fmt::Debug;
-use std::io::{self, BufRead, Write};
+use std::io::{self, BufRead};
 use std::rc::Rc;
 
 // pub enum Result<T> {
@@ -62,6 +61,7 @@ impl<T> Response<T>
 where
     T: Any + Serialize + Debug,
 {
+    #[allow(dead_code)]
     pub fn new(request: Request, msg: T) -> Response<T>
     where
         T: Serialize,
@@ -89,10 +89,12 @@ where
         }
     }
 
+    #[allow(dead_code)]
     pub fn to_json(&self) -> serde_json::Result<String> {
         serde_json::to_string(&self)
     }
 
+    #[allow(dead_code)]
     pub fn empty(request: Request) -> Response<T> {
         Response {
             request_id: request.id,
@@ -108,7 +110,7 @@ where
     E: std::string::ToString,
 {
     state: State,
-    methods: HashMap<String, Rc<Fn(&mut State, &Request) -> Result<T, E>>>
+    methods: HashMap<String, Rc<dyn Fn(&mut State, &Request) -> Result<T, E>>>
 }
 
 impl<State, T, E> Rpc<State, T, E>
@@ -123,7 +125,7 @@ where
         }
     }
 
-    pub fn at(&mut self, name: &str, method: &'static Fn(&mut State, &Request) -> Result<T, E>) {
+    pub fn at(&mut self, name: &str, method: &'static dyn Fn(&mut State, &Request) -> Result<T, E>) {
         let rc_method = Rc::new(method);
         self.methods.insert(name.to_string(), rc_method);
     }
@@ -174,7 +176,7 @@ where
         };
         match json {
             Ok(str) => println!("{}", str),
-            Err(err) => eprintln!("Could not serialize message.")
+            Err(_err) => eprintln!("Could not serialize message.")
         }
     }
 }
