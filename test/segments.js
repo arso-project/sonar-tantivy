@@ -4,7 +4,7 @@ const { getSchema, getDocs, getDocs2 } = require('./lib/fixtures')
 
 const Sonar = require('..')
 
-test.only('basic indexing and query', async t => {
+test('basic indexing and query', async t => {
   const [dir, cleanup] = await tempdir()
   const catalog = new Sonar(dir)
   const schema = getSchema()

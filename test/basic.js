@@ -10,7 +10,6 @@ test('basic indexing and query', async t => {
   const schema = getSchema()
   const index = await catalog.openOrCreate('index-name', schema)
   const docs = getDocs()
-  // console.log(await index.meta())
   await index.add(docs)
 
   let results = await index.query('mundo')
@@ -26,7 +25,6 @@ test('basic indexing and query', async t => {
   t.equal(first.doc.id[0], 'first1')
   t.equal(first.snippet, 'hi first tell me <b>more</b>')
   // console.log(results[0])
-
   // console.log(await index.meta())
 
   await catalog.close()
