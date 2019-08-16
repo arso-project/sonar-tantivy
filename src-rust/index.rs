@@ -285,14 +285,12 @@ impl IndexHandle {
             };
             save_metas(&metas, self.index.directory_mut())?;
         } else {
-            return Err(TantivyError::InvalidArgument(
-                "segment already indexed".to_string(),
-            ));
+            return Err(TantivyError::InvalidArgument("Segment exists.".to_string()));
         }
 
         if !self.index.searchable_segment_ids()?.contains(&segment_id) {
             return Err(TantivyError::InvalidArgument(
-                "not possible to add segment".to_string(),
+                "Adding segment failed.".to_string(),
             ));
         }
         Ok(())
@@ -340,8 +338,9 @@ fn move_segment() {
         .unwrap();
 
     let handle1 = catalog.get_index(&"testindex1".to_string()).unwrap();
-    handle1.ensure_writer().unwrap();
-    let mut writer1 = handle1.writer.take().unwrap();
+
+    let writer_lock1 = handle1.get_writer().unwrap();
+    let mut writer1 = writer_lock1.write().unwrap();
 
     // create a new tantivy Document to push this doc to index1
     let mut doc = Document::new();

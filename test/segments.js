@@ -1,11 +1,10 @@
 const test = require('tape')
 const { tempdir, copyFiles } = require('./lib/util')
 const { getSchema, getDocs, getDocs2 } = require('./lib/fixtures')
-const fs = require('fs')
 
 const Sonar = require('..')
 
-test('basic indexing and query', async t => {
+test.only('basic indexing and query', async t => {
   const [dir, cleanup] = await tempdir()
   const catalog = new Sonar(dir)
   const schema = getSchema()
