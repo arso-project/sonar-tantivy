@@ -7,6 +7,7 @@
     "postinstall": "node scripts/install.js",
     "test": "tape test/*.js"
   },
+  "repository": "https://github.com/Frando/sonar",
   "author": "Franz Heinzmann",
   "license": "MIT",
   "dependencies": {

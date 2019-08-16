@@ -7,8 +7,10 @@ const { execSync, exec } = require('child_process')
 
 const REPO_NAME = 'sonar'
 const REPO_ORG = 'Frando'
-// const PROJECT_NAME = 'sonar'
-// const GITHUB_REPO = 'Frando/sonar'
+
+const BASE_PATH = p.join(__dirname, '..')
+const CARGO_PATH = p.join(BASE_PATH, 'Cargo.toml')
+const DIST_PATH = p.join(BASE_PATH, 'dist')
 
 const OS_TARGETS = {
   linux: 'unknown-linux-gnu',
@@ -18,7 +20,6 @@ const OS_TARGETS = {
 try {
   start((err) => {
     if (err) exit(1, 'Installation failed: ' + err.message)
-    console.log('Installation complete!')
   })
 } catch (err) {
   exit(1, err.message)
@@ -33,8 +34,10 @@ function start (cb) {
     tag: `v${ct.package.version}`,
     binaries,
     targetTriple: targetTriple(),
-    dest: p.join(__dirname, '..', 'dist')
+    dest: DIST_PATH
   }
+
+  console.log(`Installing ${ct.package.name} ${opts.tag}...`)
 
   if (!fs.existsSync(opts.dest)) {
     fs.mkdirSync(opts.dest)
@@ -42,19 +45,25 @@ function start (cb) {
 
   downloadRelease(opts, err => {
     // console.log('download finished', err)
-    if (!err) return cb()
-    if (err) console.log('Error: ' + err.message)
-    console.log('Download of prebuild release failed, try to build...')
-    buildRelease(opts, cb)
+    if (!err) return done()
+    if (err) console.log('  Error: ' + err.message)
+    console.log('  Download of prebuild release failed, try to build...')
+    buildRelease(opts, done)
   })
+
+  function done (err) {
+    if (err) return cb(err)
+    console.log(`Installation of ${ct.package.name} ${opts.tag} successful!`)
+  }
 }
 
 function buildRelease (opts, cb) {
   const { binaries, dest } = opts
   cb = once(cb)
-  const { stdout, stderr } = exec(`cargo build --release`, (err) => {
+  const { stdout, stderr } = exec(`cargo build --release --manifest-path=${CARGO_PATH} --color=always`, (err) => {
     if (err) return cb(err)
-    const srcPath = p.join(__dirname, '..', 'target', 'release')
+    const srcPath = p.join(p.dirname(CARGO_PATH), 'target', 'release')
+    console.log('  Compilation successful!')
     copyFiles(binaries, srcPath, dest, cb)
   })
   stdout.pipe(process.stdout)
@@ -69,17 +78,22 @@ function downloadRelease (opts, cb) {
   const url = `https://github.com/${REPO_ORG}/${REPO_NAME}/releases/download/${tag}/${filename}`
   const tarfile = p.join(dest, filename)
 
+  console.log(`  Download: ${url}`)
   download(url, tarfile, extract)
 
   function extract (err) {
     if (err) return done(err)
     if (!fs.existsSync(tarfile)) return done(new Error('Error: Download failed.'))
     // TODO: Handle windows?
-    execSync(`tar -xzf ${tarfile} -C ${dest}`)
-    for (let bin of opts.binaries) {
-      if (!fs.existsSync(p.join(dest, bin))) return done(new Error('Error: Binary is not in archive.'))
+    try {
+      execSync(`tar -xzf ${tarfile} -C ${dest}`)
+      for (let bin of opts.binaries) {
+        if (!fs.existsSync(p.join(dest, bin))) return done(new Error('Error: Binary is not in archive.'))
+      }
+      done()
+    } catch (e) {
+      done(e)
     }
-    done()
   }
 
   function done (err) {
@@ -97,7 +111,7 @@ function targetTriple () {
 }
 
 function cargoToml () {
-  const str = fs.readFileSync(p.join(__dirname, '../Cargo.toml')).toString()
+  const str = fs.readFileSync(CARGO_PATH).toString()
   return toml.parse(str)
 }
 
@@ -110,24 +124,31 @@ function exit (code, msg) {
 function download (url, dest, opts, cb) {
   if (!cb) return download(url, dest, {}, opts)
   cb = once(cb)
-  // console.log(`Download options: ${JSON.stringify(opts)}`)
-  console.log(`Download: ${url}`)
-  // console.log(`Save to: ${dest}`)
   const target = fs.createWriteStream(dest)
-  https.get(url, opts, response => {
-    // console.log(`Status: ${response.statusCode} ${response.statusMessage}`)
-    if (response.statusCode === 302) {
-      console.log('Redirect to: ' + response.headers.location)
+  const request = https.get(url, opts, response => {
+    // console.log(`  -> Status ${response.statusCode} ${response.statusMessage}`)
+    if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+      // console.log('  -> Redirecting...')
       return download(response.headers.location, dest, opts, cb)
     } else if (response.statusCode !== 200) {
       return cb(new Error(`Download failed: ${response.statusCode} ${response.statusMessage}`))
     }
 
+    let size = response.headers['content-length']
+    let len = 0
+    let msg = '  Downloading ' + pretty(size)
+    let status = () => console.log(msg + '... ' + Math.round((len / size) * 100) + '%')
+    let report = setInterval(status, 1000)
+    status()
     response.pipe(target)
+    response.on('data', d => (len = len + d.length))
     target.on('finish', () => {
+      clearInterval(report)
+      status()
       cb()
     })
-  }).on('error', err => {
+  })
+  request.on('error', err => {
     fs.unlink(dest, () => cb(err))
   })
 }
@@ -150,4 +171,14 @@ function once (fn) {
     finish = true
     fn(...args)
   }
+}
+function pretty (bytes) {
+  let prefixes = ['', 'KB', 'MB', 'GB', 'TB']
+  let base = 1024
+  for (let pow = prefixes.length - 1; pow >= 0; pow--) {
+    if (bytes > Math.pow(base, pow)) {
+      return Math.round((bytes / Math.pow(base, pow)) * 100) / 100 + ' ' + prefixes[pow]
+    }
+  }
+  return bytes
 }
