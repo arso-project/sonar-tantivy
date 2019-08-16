@@ -1,15 +1,33 @@
 const { EventEmitter } = require('events')
+const fs = require('fs')
+const p = require('path')
+
+const SEGMENT_FILES = [
+  '.fast',
+  '.fieldnorm',
+  '.idx',
+  '.pos',
+  '.posidx',
+  '.store',
+  '.term'
+]
 
 module.exports = class IndexCatalog extends EventEmitter {
+  static segmentFiles (segmentId) {
+    const basename = segmentId.replace(/-/g, '')
+    return SEGMENT_FILES.map(f => basename + f)
+  }
+
   constructor (pipe, opts) {
     super()
     this.pipe = pipe
+    this.path = opts.path
     this.pipe.on('error', err => this.emit('error', err))
   }
 
   async open (name) {
     // Todo: check if index exists.
-    return new Index(this.pipe, name)
+    return new Index(this, name)
   }
 
   async create (name, schema, opts = {}) {
@@ -20,7 +38,7 @@ module.exports = class IndexCatalog extends EventEmitter {
     let method = 'create_index'
     if (opts.ram) method = 'create_ram_index'
     await this.pipe.request(method, { name, schema })
-    return new Index(this.pipe, name, schema)
+    return new Index(this, name)
   }
 
   async openOrCreate (name, schema, opts) {
@@ -39,20 +57,47 @@ module.exports = class IndexCatalog extends EventEmitter {
     return this.pipe.request('query_multi', { indexes, query })
   }
 
+  readMeta (name) {
+    return new Promise((resolve, reject) => {
+      const path = p.join(this.path, name, 'meta.json')
+      fs.readFile(path, (err, buf) => {
+        if (err) return reject(err)
+        try {
+          const json = JSON.parse(buf.toString())
+          resolve(json)
+        } catch (err) { reject(err) }
+      })
+    })
+  }
+
   close () {
     this.pipe.destroy()
   }
 }
 
 class Index {
-  constructor (pipe, name) {
-    this.pipe = pipe
+  constructor (catalog, name) {
+    this.catalog = catalog
+    this.request = catalog.pipe.request.bind(catalog.pipe)
     this.name = name
+  }
+
+  async meta () {
+    return this.catalog.readMeta(this.name)
+  }
+
+  async segmentInfo () {
+    const meta = await this.meta()
+    return meta.segments
+  }
+
+  get storage () {
+    return p.join(this.catalog.path, this.name)
   }
 
   async query (query, opts = {}) {
     const { limit, snippetField } = opts
-    return this.pipe.request('query', { index: this.name, query, limit, snippet_field: snippetField })
+    return this.request('query', { index: this.name, query, limit, snippet_field: snippetField })
   }
 
   async add (docs) {
@@ -61,7 +106,11 @@ class Index {
 
   async addDocuments (documents) {
     documents = transformDocs(documents)
-    return this.pipe.request('add_documents', { index: this.name, documents })
+    return this.request('add_documents', { index: this.name, documents })
+  }
+
+  async addSegments (segments) {
+    return this.request('add_segments', { index: this.name, segments })
   }
 }
 

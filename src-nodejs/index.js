@@ -1,10 +1,13 @@
 const p = require('path')
-const Catalog = require('./catalog')
+const Sonar = require('./catalog')
 const Pipe = require('./rpc')
 
 const COMMAND_NAME = 'sonar-tantivy'
 const COMMAND_PATH = p.resolve(p.join(__dirname, '../dist', COMMAND_NAME))
 const CARGO_TOML = p.resolve(p.join(__dirname, '../Cargo.toml'))
+
+module.exports = openSonar
+module.exports.segmentFiles = Sonar.segmentFiles
 
 function getCommand () {
   if (process.env.RUST_ENV === 'development') {
@@ -14,12 +17,13 @@ function getCommand () {
   }
 }
 
-module.exports = function openSonar (path, opts = {}) {
+function openSonar (path, opts = {}) {
   path = p.resolve(path)
   const command = getCommand()
   const pipe = new Pipe(command, [path], {
     log: opts.log || (process.env.RUST_ENV === 'development' && console.log)
   })
-  const catalog = new Catalog(pipe, opts)
+  opts.path = path
+  const catalog = new Sonar(pipe, opts)
   return catalog
 }

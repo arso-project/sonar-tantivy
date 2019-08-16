@@ -5,6 +5,8 @@ use std::fs;
 use std::io;
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, RwLock};
+
 use tantivy::collector::TopDocs;
 use tantivy::query::QueryParser;
 use tantivy::schema::*;
@@ -20,7 +22,7 @@ pub struct IndexCatalog {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SegmentInfo {
-    pub uuid: String,
+    pub segment_id: String,
     pub max_doc: u32,
 }
 
@@ -135,7 +137,8 @@ impl IndexCatalog {
 pub struct IndexHandle {
     pub index: Index,
     pub reader: Option<IndexReader>,
-    pub writer: Option<IndexWriter>,
+    // pub writer: Option<IndexWriter>,
+    pub writer: Option<Arc<RwLock<IndexWriter>>>,
 }
 
 impl IndexHandle {
@@ -148,31 +151,42 @@ impl IndexHandle {
     }
 
     pub fn add_documents(&mut self, docs: &[Vec<(String, Value)>]) -> Result<()> {
-        self.ensure_writer()?;
         let schema = self.index.schema();
-        let mut writer = self.writer.take().unwrap();
+        let writer_lock = self.get_writer()?;
+        {
+            let writer = writer_lock.read()?;
 
-        for doc in docs {
-            let mut document = Document::default();
-            for (field_name, value) in doc {
-                match schema.get_field(&field_name) {
-                    Some(field) => document.add(FieldValue::new(field, value.clone())),
-                    None => eprintln!("Invalid field: {}", field_name),
+            for doc in docs {
+                let mut document = Document::default();
+                for (field_name, value) in doc {
+                    match schema.get_field(&field_name) {
+                        Some(field) => document.add(FieldValue::new(field, value.clone())),
+                        None => eprintln!("Invalid field: {}", field_name),
+                    }
                 }
-            }
 
-            let _opstamp = writer.add_document(document);
-            // eprintln!("added {:?}", opstamp);
+                let _opstamp = writer.add_document(document);
+                // eprintln!("added {:?}", _opstamp);
+            }
         }
-        // eprintln!("now commit");
-        writer.commit()?;
-        self.writer = Some(writer);
+        {
+            // eprintln!("now commit");
+            let mut writer = writer_lock.write()?;
+            let _opstamp = writer.commit()?;
+            // eprintln!("committed {:?}", _opstamp);
+        }
         Ok(())
+    }
+
+    pub fn get_writer(&mut self) -> Result<Arc<RwLock<IndexWriter>>> {
+        self.ensure_writer()?;
+        Ok(Arc::clone(self.writer.as_ref().unwrap()))
     }
 
     fn ensure_writer(&mut self) -> Result<()> {
         if self.writer.is_none() {
             let writer = self.index.writer(50_000_000)?;
+            let writer = Arc::new(RwLock::new(writer));
             self.writer = Some(writer);
         }
         Ok(())
@@ -242,7 +256,7 @@ impl IndexHandle {
 
     pub fn add_segments(&mut self, segments: Vec<SegmentInfo>) -> Result<()> {
         for segment in segments {
-            self.add_segment(&segment.uuid, segment.max_doc)?;
+            self.add_segment(&segment.segment_id, segment.max_doc)?;
         }
         Ok(())
     }
