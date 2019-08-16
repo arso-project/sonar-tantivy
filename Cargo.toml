@@ -1,20 +1,22 @@
 [package]
-name = "sonar-search"
-version = "0.0.5"
+name = "sonar-tantivy"
+version = "0.1.0"
 authors = ["Franz Heinzmann (Frando) <frando@unbiskant.org>"]
 edition = "2018"
 
+[[bin]]
+name = "sonar-tantivy"
+path = "src-rust/main.rs"
+
 [dependencies]
 tantivy = { git = "https://github.com/Frando/tantivy.git", branch = "segment-meta" }
-# tantivy = "0.10.1"
-# tantivy = { path = "../tantivy" }
-serde_json = { version = "1.0.39", features = ["preserve_order"] }
-serde = { version = "1.0.90", features = ["derive"] }
-log = "0.4.6"
-uuid = "0.7.4"
-failure = "0.1.5"
-varinteger = "1.0.6"
-once_cell = "0.2.6"
+serde_json = { version = "^1.0", features = ["preserve_order"] }
+serde = { version = "^1.0", features = ["derive"] }
+log = "^0.4"
+uuid = "^0.7"
+failure = "^0.1"
+varinteger = "^1.0"
+once_cell = "^0.2"
 
 [dev-dependencies]
-tempdir = "0.3.7"
+tempdir = "^0.3"

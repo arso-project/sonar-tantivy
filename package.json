@@ -1,22 +1,23 @@
 {
   "name": "@archipel/sonar",
-  "version": "0.0.5",
-  "description": "",
-  "main": "node/index.js",
+  "version": "0.1.0",
+  "description": "A tantivy search engine",
+  "main": "src-nodejs/index.js",
   "scripts": {
-    "postinstall": "node scripts/install.js"
+    "postinstall": "node scripts/install.js",
+    "test": "tape test/*.js"
   },
-  "author": "",
+  "author": "Franz Heinzmann",
   "license": "MIT",
   "dependencies": {
     "debug": "^4.1.1",
     "duplexify": "^4.1.1",
-    "hyperquest": "^2.1.3",
     "pump": "^3.0.0",
     "split2": "^3.1.1",
     "toml": "^3.0.0"
   },
   "devDependencies": {
-    "protocol-buffers": "^4.1.0"
+    "tape": "^4.11.0",
+    "temporary-directory": "^1.0.2"
   }
 }

@@ -45,6 +45,14 @@ pub fn create_index(catalog: &mut IndexCatalog, request: &Request) -> Result<Res
     Ok(Res::empty())
 }
 
+pub fn create_ram_index(catalog: &mut IndexCatalog, request: &Request) -> Result<Res, Error> {
+    let req: CreateIndex = request.message()?;
+    let schema_json = serde_json::to_string(&req.schema)?;
+    let schema: tantivy::schema::Schema = serde_json::from_str(&schema_json)?;
+    catalog.create_ram_index(req.name.clone(), schema)?;
+    Ok(Res::empty())
+}
+
 pub fn index_exists(catalog: &mut IndexCatalog, request: &Request) -> Result<Res, Error> {
     let name: String = request.message()?;
     let has = match catalog.get_index(&name) {
@@ -73,34 +81,41 @@ pub struct Query {
     pub index: String,
     pub query: String,
     pub limit: Option<u32>,
+    pub snippet_field: Option<String>
 }
 #[derive(Serialize, Deserialize, Debug)]
 pub struct QueryMulti {
     pub indexes: Vec<String>,
     pub query: String,
 }
-#[derive(Serialize, Debug)]
-pub struct QueryResponse {
-    pub results: Vec<QueryResponseDocument>,
-}
-#[derive(Serialize, Debug)]
-pub struct QueryMultiResponse {
-    pub results: Vec<(String,Vec<QueryResponseDocument>)>,
+
+// #[derive(Serialize, Debug)]
+type QueryResponse = Vec<QueryResponseDocument>;
+// pub struct QueryResponse {
+//     pub results: Vec<QueryResponseDocument>,
+// }
+
+// #[derive(Serialize, Debug)]
+type QueryMultiResponse = Vec<(String, Vec<QueryResponseDocument>)>;
+// pub struct QueryMultiResponse {
+//     pub results: Vec<(String,Vec<QueryResponseDocument>)>,
+// }
+
+#[derive(Serialize)]
+pub struct QueryResponseDocument {
+    pub score: f32,
+    pub doc: NamedFieldDocument,
+    pub snippet: Option<String>
 }
 
 impl QueryResponseDocument {
     pub fn from_tantivy_doc(
         score: f32,
         doc: NamedFieldDocument,
+        snippet: Option<String>
     ) -> Result<QueryResponseDocument, Error> {
-        Ok(QueryResponseDocument { score, doc })
+        Ok(QueryResponseDocument { score, doc, snippet })
     }
-}
-
-#[derive(Serialize)]
-pub struct QueryResponseDocument {
-    pub score: f32,
-    pub doc: NamedFieldDocument,
 }
 
 impl fmt::Debug for QueryResponseDocument {
@@ -113,27 +128,28 @@ pub fn query(catalog: &mut IndexCatalog, request: &Request) -> Result<Res, Error
     let req: Query = request.message()?;
     // eprintln!("QUERY {:?}", req);
     let handle = catalog.get_index(&req.index)?;
-    let tantivy_results = handle.query(&req.query, req.limit.unwrap_or(10))?;
+    let tantivy_results = handle.query(&req.query, req.limit.unwrap_or(10), req.snippet_field)?;
     let mut results = vec![];
-    for (score, doc) in tantivy_results {
-        let result = QueryResponseDocument::from_tantivy_doc(score.clone(), doc);
+    for (score, doc, snippet) in tantivy_results {
+        let result = QueryResponseDocument::from_tantivy_doc(score.clone(), doc, snippet);
         if let Ok(doc) = result {
             results.push(doc)
         }
     }
 
-    let response = QueryResponse { results };
+    // let response = QueryResponse { results };
+    let response = results;
     // Ok(response)
     Ok(Res::QueryResponse(response))
 }
 pub fn query_multi(catalog: &mut IndexCatalog, request: &Request) -> Result<Res, Error> {
     let req: QueryMulti = request.message()?;
-    let tantivy_results = catalog.query_multi(&req.query, &req.indexes)?;
-    let mut results = vec![];
-    for (index, inner_tantivy_results) in tantivy_results {
+    let combined_results = catalog.query_multi(&req.query, &req.indexes)?;
+    let mut results: QueryMultiResponse = vec![];
+    for (index, index_results) in combined_results {
         let mut inner_results = vec![];
-        for (score, doc) in inner_tantivy_results {
-            let result = QueryResponseDocument::from_tantivy_doc(score.clone(), doc);
+        for (score, doc, snippet) in index_results {
+            let result = QueryResponseDocument::from_tantivy_doc(score.clone(), doc, snippet);
             if let Ok(doc) = result {
                 inner_results.push(doc);
             }
@@ -141,7 +157,8 @@ pub fn query_multi(catalog: &mut IndexCatalog, request: &Request) -> Result<Res,
         results.push((index, inner_results));
     }
 
-    let response = QueryMultiResponse { results };
+    // let response = QueryMultiResponse { results };
+    let response = results;
     // Ok(response)
     Ok(Res::QueryMultiResponse(response))
 }

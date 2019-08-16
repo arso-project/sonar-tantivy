@@ -158,7 +158,7 @@ where
 
         for line in stdin.lock().lines() {
             let line = line.expect("Could not read line from standard in");
-            eprintln!("RECV: {}", line);
+            // eprintln!("RECV: {}", line);
             let response = self.handle_json(&line);
             self.send(Message::Response(response))
         }

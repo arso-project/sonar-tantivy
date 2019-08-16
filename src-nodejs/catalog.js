@@ -1,14 +1,11 @@
-const Pipe = require('./rpc')
 const p = require('path')
-// const hyperdrive = require('hyperdrive')
-// const crypto = require('hypercore-crypto')
+const { EventEmitter } = require('events')
 
-const cargoToml = p.resolve(p.join(__dirname, '../Cargo.toml'))
-
-module.exports = class IndexCatalog {
-  constructor (path, opts) {
-    this.path = p.resolve(path)
-    this.pipe = new Pipe(`cargo run --manifest-path=${cargoToml} -- ${this.path}`)
+module.exports = class IndexCatalog extends EventEmitter {
+  constructor (pipe, opts) {
+    super()
+    this.pipe = pipe
+    this.pipe.on('error', err => this.emit('error', err))
   }
 
   async open (name) {
@@ -16,20 +13,22 @@ module.exports = class IndexCatalog {
     return new Index(this.pipe, name)
   }
 
-  async create (name, schema) {
+  async create (name, schema, opts = {}) {
     // Todo: check if index exists.
-    await this.pipe.request('create_index', { name, schema })
+    if (await this.has(name)) {
+      throw new Error(`Index ${name} already exists.`)
+    }
+    let method = 'create_index'
+    if (opts.ram) method = 'create_ram_index'
+    await this.pipe.request(method, { name, schema })
     return new Index(this.pipe, name, schema)
   }
 
-  async openOrCreate (name, schema) {
-    console.log('openOrCreate', name)
+  async openOrCreate (name, schema, opts) {
     if (await this.has(name)) {
-      console.log('has!', name)
       return this.open(name)
     } else {
-      console.log('create!', name)
-      return this.create(name, schema)
+      return this.create(name, schema, opts)
     }
   }
 
@@ -40,6 +39,10 @@ module.exports = class IndexCatalog {
   multiQuery (query, indexes) {
     return this.pipe.request('query_multi', { indexes, query })
   }
+
+  close () {
+    this.pipe.destroy()
+  }
 }
 
 class Index {
@@ -48,8 +51,13 @@ class Index {
     this.name = name
   }
 
-  async query (query) {
-    return this.pipe.request('query', { index: this.name, query })
+  async query (query, opts = {}) {
+    const { limit, snippetField } = opts
+    return this.pipe.request('query', { index: this.name, query, limit, snippet_field: snippetField })
+  }
+
+  async add (docs) {
+    return this.addDocuments(docs)
   }
 
   async addDocuments (documents) {

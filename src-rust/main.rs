@@ -23,7 +23,7 @@ mod rpc;
 fn main() -> io::Result<()> {
     let args: Vec<String> = env::args().collect();
     if args.len() != 2 {
-        eprintln!("USAGE: ");
+        eprintln!("USAGE: {} BASE_PATH", &args[0]);
         ::std::process::exit(1);
     }
 
@@ -31,6 +31,7 @@ fn main() -> io::Result<()> {
     let catalog = IndexCatalog::new(base_path)?;
     let mut rpc = Rpc::new(catalog);
     rpc.at("create_index", &handles::create_index);
+    rpc.at("create_ram_index", &handles::create_ram_index);
     rpc.at("index_exists", &handles::index_exists);
     rpc.at("add_documents", &handles::add_documents);
     rpc.at("query", &handles::query);

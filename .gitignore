@@ -2,7 +2,6 @@
 **/*.rs.bk
 .cargo
 /tantivy
-/test
 Cargo.lock
 package-lock.json
 data

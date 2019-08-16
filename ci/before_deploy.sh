@@ -23,6 +23,7 @@ main() {
     # TODO Update this to package the right artifacts
     cp target/$TARGET/release/$BINARY_NAME $stage/
     cp README.md $stage/
+    cp LICENSE $stage/
 
     cd $stage
     tar czf $src/$PROJECT_NAME-$TRAVIS_TAG-$TARGET.tar.gz *

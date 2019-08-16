@@ -1,12 +1,11 @@
 const docs = [
-  { id: '0', title: 'konspirativ', body: 'eingefügt', tags: ['neu', 'segment'] },
-  { id: '0', title: 'Hello, world!', body: 'hi there', tags: ['foo', 'bar'] },
-  { id: '1', title: 'Hello, moon!', body: 'nothing to see', tags: ['boo', 'baz'] }
+  { id: '0', title: 'Hello, world!', body: 'hi there' },
+  { id: '1', title: 'Hello, moon!', body: 'nothing to see' }
 ]
 
 const docs2 = [
-  { id: '0', title: 'Hello, mars', body: 'hot hot hot', tags: ['foo', 'bar'] },
-  { id: '1', title: 'Hello, jupiter!', body: 'cold cold cold', tags: ['boo', 'baz'] }
+  { id: '0', title: 'Hello, mars', body: 'hot hot hot' },
+  { id: '1', title: 'Hello, jupiter!', body: 'cold cold cold' }
 ]
 
 const schema = [
@@ -34,14 +33,6 @@ const schema = [
   },
   {
     name: 'id',
-    type: 'text',
-    options: {
-      indexing: null,
-      stored: true
-    }
-  },
-  {
-    name: 'tags',
     type: 'text',
     options: {
       indexing: null,

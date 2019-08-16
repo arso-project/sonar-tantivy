@@ -10,7 +10,7 @@ use tantivy::query::QueryParser;
 use tantivy::schema::*;
 use tantivy::{
     self, Directory, Index, IndexMeta, IndexReader, IndexWriter, ReloadPolicy, SegmentId,
-    Result, TantivyError,
+    SnippetGenerator, Result, TantivyError,
 };
 
 pub struct IndexCatalog {
@@ -95,6 +95,13 @@ impl IndexCatalog {
         Ok(())
     }
 
+    pub fn create_ram_index(&mut self, name: String, schema: Schema) -> Result<()> {
+        let index = Index::create_in_ram(schema);
+        let handle = IndexHandle::new(index);
+        self.indexes.insert(name, handle);
+        Ok(())
+    }
+
     pub fn get_index(&mut self, name: &String) -> Result<&mut IndexHandle> {
         // eprintln!("get_index {}", name);
         // eprintln!("indexes: {:?}", self.indexes.keys());
@@ -111,13 +118,13 @@ impl IndexCatalog {
         &mut self,
         query: &String,
         indexes: &Vec<String>,
-    ) -> Result<Vec<(String, Vec<(f32, NamedFieldDocument)>)>> {
-        let mut results = Vec::new();
+    ) -> Result<Vec<(String, Vec<(f32, NamedFieldDocument, Option<String>)>)>> {
+        let mut results = vec![];
         for entry in indexes {
             let index_key = entry;
             if self.indexes.contains_key(index_key) {
                 let index = self.get_index(&index_key.to_string())?;
-                let res = index.query(query, 100)?;
+                let res = index.query(query, 100, None)?;
                 results.push((index_key.clone(), res));
             }
         }
@@ -141,11 +148,6 @@ impl IndexHandle {
     }
 
     pub fn add_documents(&mut self, docs: &[Vec<(String, Value)>]) -> Result<()> {
-        // let writer = self.get_writer()?;
-
-        // let writer = handle.get_writer()?;
-
-        // let index: &Index = &handle.index;
         self.ensure_writer()?;
         let schema = self.index.schema();
         let mut writer = self.writer.take().unwrap();
@@ -178,8 +180,7 @@ impl IndexHandle {
 
     fn ensure_reader(&mut self) -> Result<()> {
         if self.reader.is_none() {
-            let reader = self
-                .index
+            let reader = self.index
                 .reader_builder()
                 .reload_policy(ReloadPolicy::OnCommit)
                 .try_into()?;
@@ -188,7 +189,7 @@ impl IndexHandle {
         Ok(())
     }
 
-    pub fn query(&mut self, query: &String, limit: u32) -> Result<Vec<(f32, NamedFieldDocument)>> {
+    pub fn query(&mut self, query: &str, limit: u32, snippet_field: Option<String>) -> Result<Vec<(f32, NamedFieldDocument, Option<String>)>> {
         self.ensure_reader()?;
         let reader = self.reader.take().unwrap();
         let searcher = reader.searcher();
@@ -208,11 +209,26 @@ impl IndexHandle {
         let query = query_parser.parse_query(query)?;
 
         let top_docs = searcher.search(&query, &TopDocs::with_limit(limit as usize))?;
+        
+        let snippet_generator = match &snippet_field {
+            Some(field_name) => {
+                let field = schema.get_field(&field_name);
+                match field {
+                    Some(field) => Some(SnippetGenerator::create(&searcher, &*query, field)?),
+                    None => None
+                }
+            }
+            None => None
+        };
 
         let mut results = vec![];
         for (score, doc_address) in top_docs {
             let retrieved_doc = searcher.doc(doc_address)?;
-            results.push((score, schema.to_named_doc(&retrieved_doc)));
+            let snippet = match &snippet_generator {
+                Some(generator) => Some(generator.snippet_from_doc(&retrieved_doc).to_html()),
+                None => None
+            };
+            results.push((score, schema.to_named_doc(&retrieved_doc), snippet));
         }
 
         Ok(results)
