@@ -81,7 +81,7 @@ pub struct Query {
     pub index: String,
     pub query: String,
     pub limit: Option<u32>,
-    pub snippet_field: Option<String>
+    pub snippet_field: Option<String>,
 }
 #[derive(Serialize, Deserialize, Debug)]
 pub struct QueryMulti {
@@ -105,16 +105,20 @@ type QueryMultiResponse = Vec<(String, Vec<QueryResponseDocument>)>;
 pub struct QueryResponseDocument {
     pub score: f32,
     pub doc: NamedFieldDocument,
-    pub snippet: Option<String>
+    pub snippet: Option<String>,
 }
 
 impl QueryResponseDocument {
     pub fn from_tantivy_doc(
         score: f32,
         doc: NamedFieldDocument,
-        snippet: Option<String>
+        snippet: Option<String>,
     ) -> Result<QueryResponseDocument, Error> {
-        Ok(QueryResponseDocument { score, doc, snippet })
+        Ok(QueryResponseDocument {
+            score,
+            doc,
+            snippet,
+        })
     }
 }
 

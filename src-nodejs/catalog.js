@@ -1,4 +1,3 @@
-const p = require('path')
 const { EventEmitter } = require('events')
 
 module.exports = class IndexCatalog extends EventEmitter {

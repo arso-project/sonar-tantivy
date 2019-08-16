@@ -15,11 +15,12 @@ use std::rc::Rc;
 // }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub enum Message<T> where
-    T: Serialize + Debug
+pub enum Message<T>
+where
+    T: Serialize + Debug,
 {
     Request(Request),
-    Response(Response<T>)
+    Response(Response<T>),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -110,7 +111,7 @@ where
     E: std::string::ToString,
 {
     state: State,
-    methods: HashMap<String, Rc<dyn Fn(&mut State, &Request) -> Result<T, E>>>
+    methods: HashMap<String, Rc<dyn Fn(&mut State, &Request) -> Result<T, E>>>,
 }
 
 impl<State, T, E> Rpc<State, T, E>
@@ -121,11 +122,15 @@ where
     pub fn new(state: State) -> Rpc<State, T, E> {
         Rpc {
             state,
-            methods: HashMap::new()
+            methods: HashMap::new(),
         }
     }
 
-    pub fn at(&mut self, name: &str, method: &'static dyn Fn(&mut State, &Request) -> Result<T, E>) {
+    pub fn at(
+        &mut self,
+        name: &str,
+        method: &'static dyn Fn(&mut State, &Request) -> Result<T, E>,
+    ) {
         let rc_method = Rc::new(method);
         self.methods.insert(name.to_string(), rc_method);
     }
@@ -169,23 +174,26 @@ where
     // methods: HashMap<String, Rc<Fn(&mut State, &Request) -> Result<T, E>>>
     // }
 
-    fn send (&self, msg: Message<T>) where T: Serialize + Debug {
+    fn send(&self, msg: Message<T>)
+    where
+        T: Serialize + Debug,
+    {
         let json = match msg {
             Message::Request(ref req) => serde_json::to_string(&req),
             Message::Response(ref res) => serde_json::to_string(&res),
         };
         match json {
             Ok(str) => println!("{}", str),
-            Err(_err) => eprintln!("Could not serialize message.")
+            Err(_err) => eprintln!("Could not serialize message."),
         }
     }
 }
 
-fn hello () -> Request {
+fn hello() -> Request {
     Request {
         id: 0,
         method: "hello".to_string(),
-        msg: serde_json::Value::Null
+        msg: serde_json::Value::Null,
     }
 }
 

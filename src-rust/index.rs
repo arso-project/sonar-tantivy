@@ -1,16 +1,16 @@
-use std::collections::HashMap;
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fs;
 use std::io;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use once_cell::sync::Lazy;
 use tantivy::collector::TopDocs;
 use tantivy::query::QueryParser;
 use tantivy::schema::*;
 use tantivy::{
-    self, Directory, Index, IndexMeta, IndexReader, IndexWriter, ReloadPolicy, SegmentId,
-    SnippetGenerator, Result, TantivyError,
+    self, Directory, Index, IndexMeta, IndexReader, IndexWriter, ReloadPolicy, Result, SegmentId,
+    SnippetGenerator, TantivyError,
 };
 
 pub struct IndexCatalog {
@@ -180,7 +180,8 @@ impl IndexHandle {
 
     fn ensure_reader(&mut self) -> Result<()> {
         if self.reader.is_none() {
-            let reader = self.index
+            let reader = self
+                .index
                 .reader_builder()
                 .reload_policy(ReloadPolicy::OnCommit)
                 .try_into()?;
@@ -189,7 +190,12 @@ impl IndexHandle {
         Ok(())
     }
 
-    pub fn query(&mut self, query: &str, limit: u32, snippet_field: Option<String>) -> Result<Vec<(f32, NamedFieldDocument, Option<String>)>> {
+    pub fn query(
+        &mut self,
+        query: &str,
+        limit: u32,
+        snippet_field: Option<String>,
+    ) -> Result<Vec<(f32, NamedFieldDocument, Option<String>)>> {
         self.ensure_reader()?;
         let reader = self.reader.take().unwrap();
         let searcher = reader.searcher();
@@ -209,16 +215,16 @@ impl IndexHandle {
         let query = query_parser.parse_query(query)?;
 
         let top_docs = searcher.search(&query, &TopDocs::with_limit(limit as usize))?;
-        
+
         let snippet_generator = match &snippet_field {
             Some(field_name) => {
                 let field = schema.get_field(&field_name);
                 match field {
                     Some(field) => Some(SnippetGenerator::create(&searcher, &*query, field)?),
-                    None => None
+                    None => None,
                 }
             }
-            None => None
+            None => None,
         };
 
         let mut results = vec![];
@@ -226,7 +232,7 @@ impl IndexHandle {
             let retrieved_doc = searcher.doc(doc_address)?;
             let snippet = match &snippet_generator {
                 Some(generator) => Some(generator.snippet_from_doc(&retrieved_doc).to_html()),
-                None => None
+                None => None,
             };
             results.push((score, schema.to_named_doc(&retrieved_doc), snippet));
         }
@@ -246,11 +252,13 @@ impl IndexHandle {
         let segment_id = SegmentId::from_uuid_string(uuid_string)
             .map_err(|_err| TantivyError::InvalidArgument("Not a valid UUID string".to_string()))?;
 
-        let existing_segment_ids = self.index
-           .searchable_segment_ids()?;
-	
-	if !existing_segment_ids.contains(&segment_id) {
-            let meta = self.index.inventory().new_segment_meta(segment_id, max_doc as u32);
+        let existing_segment_ids = self.index.searchable_segment_ids()?;
+
+        if !existing_segment_ids.contains(&segment_id) {
+            let meta = self
+                .index
+                .inventory()
+                .new_segment_meta(segment_id, max_doc as u32);
             segments.push(meta);
             let schema = self.index.schema();
             // add the counter of docs in segment to the index counter
@@ -330,7 +338,7 @@ fn move_segment() {
     let index1 = handle1.index.clone();
     let mut allsegments = index1.searchable_segment_ids().unwrap();
 
-    let handle2= catalog.get_index(&"testindex2".to_string()).unwrap();
+    let handle2 = catalog.get_index(&"testindex2".to_string()).unwrap();
     let index2 = handle2.index.clone();
 
     // get the segment_id for the segment in index1 and copy the files in index2 dir
@@ -347,13 +355,9 @@ fn move_segment() {
     ];
     for ext in exts.iter() {
         let mut path1 = base_path.clone();
-        path1.push(
-            ["testindex1/", &uuid_string, ext].concat()
-        );
+        path1.push(["testindex1/", &uuid_string, ext].concat());
         let mut path2 = base_path.clone();
-        path2.push(
-            ["testindex2/", &uuid_string, ext].concat()
-        );
+        path2.push(["testindex2/", &uuid_string, ext].concat());
         let _result = fs::copy(path1, path2).unwrap();
     }
 
@@ -367,7 +371,7 @@ fn move_segment() {
             .uuid_string(),
         uuid_string
     );
-    
+
     let len = search(&index1, vec![field_str], "sea");
     assert_eq!(len, 1);
     let len = search(&index1, vec![field_str], "foo");
@@ -375,12 +379,12 @@ fn move_segment() {
     let len = search(&index2, vec![field_str], "sea");
     assert_eq!(len, 1);
 
-
-    fn search (index: &Index, fields: Vec<Field>, query: &str) -> usize {
+    fn search(index: &Index, fields: Vec<Field>, query: &str) -> usize {
         let searcher = index
             .reader_builder()
             .reload_policy(ReloadPolicy::OnCommit)
-            .try_into().unwrap()
+            .try_into()
+            .unwrap()
             .searcher();
 
         let query_parser = QueryParser::for_index(&index, fields);
