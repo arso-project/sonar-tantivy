@@ -139,6 +139,7 @@ pub struct IndexHandle {
     pub reader: Option<IndexReader>,
     // pub writer: Option<IndexWriter>,
     pub writer: Option<Arc<RwLock<IndexWriter>>>,
+    pub query_parser: Option<QueryParser>,
 }
 
 impl IndexHandle {
@@ -147,6 +148,7 @@ impl IndexHandle {
             index,
             reader: None,
             writer: None,
+            query_parser: None,
         }
     }
 
@@ -204,6 +206,25 @@ impl IndexHandle {
         Ok(())
     }
 
+    fn ensure_query_parser(&mut self) -> Result<()> {
+        let schema = self.index.schema();
+        if self.query_parser.is_none() {
+            let mut fields = vec![];
+            let all_fields = schema.fields();
+            for field_entry in all_fields {
+                if !field_entry.is_indexed() {
+                    break;
+                }
+                if let Some(field) = schema.get_field(field_entry.name()) {
+                    fields.push(field);
+                } // else cannot happen.
+            }
+            let query_parser = QueryParser::for_index(&self.index, fields);
+            self.query_parser = Some(query_parser);
+        }
+        Ok(())
+    }
+
     pub fn query(
         &mut self,
         query: &str,
@@ -211,23 +232,13 @@ impl IndexHandle {
         snippet_field: Option<String>,
     ) -> Result<Vec<(f32, NamedFieldDocument, Option<String>)>> {
         self.ensure_reader()?;
+        self.ensure_query_parser()?;
         let reader = self.reader.take().unwrap();
+        let query_parser = self.query_parser.take().unwrap();
         let searcher = reader.searcher();
         let schema = self.index.schema();
 
-        let mut fields = vec![];
-        let all_fields = schema.fields();
-        for field_entry in all_fields {
-            if !field_entry.is_indexed() {
-                break;
-            }
-            if let Some(field) = schema.get_field(field_entry.name()) {
-                fields.push(field);
-            } // else cannot happen.
-        }
-        let query_parser = QueryParser::for_index(&self.index, fields);
         let query = query_parser.parse_query(query)?;
-
         let top_docs = searcher.search(&query, &TopDocs::with_limit(limit as usize))?;
 
         let snippet_generator = match &snippet_field {
