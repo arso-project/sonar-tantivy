@@ -71,7 +71,7 @@ class RpcPipe extends Duplexify {
     this.setWritable(this.in)
 
     this.out.cork()
-    this.in.on('data', msg => this._handle(msg))
+    this.in.on('data', msg => this._recv(msg))
   }
 
   at (method, cb) {
@@ -79,16 +79,16 @@ class RpcPipe extends Duplexify {
   }
 
   sendRequest (method, msg, cb) {
-    let id = ++this[counter]
+    const id = ++this[counter]
     if (cb) this[callbacks][id] = cb
 
-    let message = { id, method, msg }
+    const message = { id, method, msg }
 
     this.out.write(message)
   }
 
   sendResponse (id, err, msg) {
-    let message = { request_id: id, err, msg }
+    const message = { request_id: id, err, msg }
     this.out.write(message)
   }
 
@@ -99,13 +99,13 @@ class RpcPipe extends Duplexify {
     })
   }
 
-  _handle (message) {
-    if (message.method) this._onRequest(message)
-    else if (message.request_id) this._onResponse(message)
-    else this.emit('error', new Error('Invalid message: ' + JSON.stringify(message)))
+  _recv (msg) {
+    if (msg.method) this._onrequest(msg)
+    else if (msg.request_id) this._onresponse(msg)
+    else this.emit('error', new Error('Invalid message: ' + JSON.stringify(msg)))
   }
 
-  _onRequest (message) {
+  _onrequest (message) {
     const { method, id, msg } = message
 
     if (method === 'hello') return this.out.uncork()
@@ -118,7 +118,7 @@ class RpcPipe extends Duplexify {
     })
   }
 
-  _onResponse (message) {
+  _onresponse (message) {
     const { request_id: requestId, err, msg } = message
 
     if (!this[callbacks][requestId]) {

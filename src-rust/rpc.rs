@@ -9,11 +9,6 @@ use std::fmt::Debug;
 use std::io::{self, BufRead};
 use std::rc::Rc;
 
-// pub enum Result<T> {
-//     Ok(T),
-//     Err(String),
-// }
-
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Message<T>
 where
@@ -135,26 +130,6 @@ where
         self.methods.insert(name.to_string(), rc_method);
     }
 
-    pub fn handle_call(&mut self, request: Request) -> Response<T> {
-        if let Some(method) = self.methods.get(&request.method) {
-            let msg = method(&mut self.state, &request);
-            match msg {
-                Ok(msg) => return Response::ok(request, msg),
-                Err(err) => return Response::error(request, err.to_string()),
-            }
-        } else {
-            return Response::error(request, "Method not found.".to_string());
-        }
-    }
-
-    pub fn handle_json(&mut self, json: &str) -> Response<T> {
-        let result: serde_json::Result<Request> = serde_json::from_str(json);
-        match result {
-            Ok(request) => self.handle_call(request),
-            Err(err) => Response::error(Request::empty(), err.to_string()),
-        }
-    }
-
     pub fn stdio_loop(&mut self) {
         let stdin = io::stdin();
         // let mut stdout = io::stdout();
@@ -163,18 +138,21 @@ where
 
         for line in stdin.lock().lines() {
             let line = line.expect("Could not read line from standard in");
-            // eprintln!("RECV: {}", line);
-            let response = self.handle_json(&line);
-            self.send(Message::Response(response))
+            self.recv(line)
         }
     }
 
-    // pub fn request (&self, request: Request, callback: Fn(&mut State, ) {
-    // pub fn request(&mut self, request: Request, callback: &'static Fn(&mut State, &Request) -> Result<T, E>) {
-    // methods: HashMap<String, Rc<Fn(&mut State, &Request) -> Result<T, E>>>
-    // }
+    pub fn recv(&mut self, line: String) {
+        // eprintln!("RECV: {}", line);
+        let parsed_request = self.parse_json(&line);
+        let response = match parsed_request {
+            Ok(request) => self.onrequest(request),
+            Err(err) => Response::error(Request::empty(), err.to_string()),
+        };
+        self.send(Message::Response(response))
+    }
 
-    fn send(&self, msg: Message<T>)
+    pub fn send(&self, msg: Message<T>)
     where
         T: Serialize + Debug,
     {
@@ -186,6 +164,23 @@ where
             Ok(str) => println!("{}", str),
             Err(_err) => eprintln!("Could not serialize message."),
         }
+    }
+
+    fn onrequest(&mut self, request: Request) -> Response<T> {
+        if let Some(method) = self.methods.get(&request.method) {
+            let msg = method(&mut self.state, &request);
+            match msg {
+                Ok(msg) => return Response::ok(request, msg),
+                Err(err) => return Response::error(request, err.to_string()),
+            }
+        } else {
+            return Response::error(request, "Method not found.".to_string());
+        }
+    }
+
+    fn parse_json(&mut self, json: &str) -> serde_json::Result<Request> {
+        let request: serde_json::Result<Request> = serde_json::from_str(json);
+        request
     }
 }
 
