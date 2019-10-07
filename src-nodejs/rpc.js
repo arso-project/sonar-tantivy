@@ -78,31 +78,39 @@ class RpcPipe extends Duplexify {
     this[methods][method] = cb
   }
 
-  sendRequest (method, msg, cb) {
+  request (method, msg, cb) {
+    if (!cb) {
+      return new Promise((resolve, reject) => {
+        cb = (err, data) => err ? reject(err) : resolve(data)
+        this._sendRequest(method, msg, cb)
+      })
+    } else {
+      this._sendRequest(method, msg, cb)
+    }
+  }
+
+  _sendRequest (method, msg, cb) {
     const id = ++this[counter]
-    if (cb) this[callbacks][id] = cb
+    if (cb) this[callbacks][id * -1] = cb
 
     const message = { id, method, msg }
 
     this.out.write(message)
   }
 
-  sendResponse (id, err, msg) {
-    const message = { request_id: id, err, msg }
+  _sendResponse (id, err, msg) {
+    const message = { id, err, msg }
     this.out.write(message)
   }
 
-  request (method, msg) {
-    return new Promise((resolve, reject) => {
-      const cb = (err, data) => err ? reject(err) : resolve(data)
-      this.sendRequest(method, msg, cb)
-    })
-  }
-
   _recv (msg) {
-    if (msg.method) this._onrequest(msg)
-    else if (msg.request_id) this._onresponse(msg)
-    else this.emit('error', new Error('Invalid message: ' + JSON.stringify(msg)))
+    if (msg.id >= 0 && msg.method) {
+      this._onrequest(msg)
+    } else if (msg.id < 0) {
+      this._onresponse(msg)
+    } else {
+      this.emit('error', new Error('Invalid message: ' + JSON.stringify(msg)))
+    }
   }
 
   _onrequest (message) {
@@ -114,19 +122,19 @@ class RpcPipe extends Duplexify {
       this.emit('error', new Error('No handler for message: ' + JSON.stringify(message)))
     }
     this[methods][method](msg, (err, response) => {
-      this.sendResponse(id, err, response)
+      this._sendResponse(id, err, response)
     })
   }
 
   _onresponse (message) {
-    const { request_id: requestId, err, msg } = message
+    const { id, err, msg } = message
 
-    if (!this[callbacks][requestId]) {
+    if (!this[callbacks][id]) {
       this.emit('error', new Error('No callback for message: ' + JSON.stringify(message)))
     }
-    this[callbacks][requestId](err, msg)
+    this[callbacks][id](err, msg)
     // Todo: Keep the callbacks to allow streaming?
-    delete this[callbacks][requestId]
+    delete this[callbacks][id]
   }
 }
 

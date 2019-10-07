@@ -20,7 +20,7 @@ where
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Request {
-    id: u64,
+    id: i64,
     method: String,
     msg: serde_json::Value,
 }
@@ -48,7 +48,7 @@ pub struct Response<T>
 where
     T: Serialize + Debug,
 {
-    request_id: u64,
+    id: i64,
     msg: Option<Box<T>>,
     err: Option<String>,
 }
@@ -57,21 +57,9 @@ impl<T> Response<T>
 where
     T: Any + Serialize + Debug,
 {
-    #[allow(dead_code)]
-    pub fn new(request: Request, msg: T) -> Response<T>
-    where
-        T: Serialize,
-    {
-        Response {
-            request_id: request.id,
-            msg: Some(Box::new(msg)),
-            err: None,
-        }
-    }
-
     pub fn error(request: Request, error: String) -> Response<T> {
         Response {
-            request_id: request.id,
+            id: request.id * -1,
             msg: None,
             err: Some(error),
         }
@@ -79,7 +67,7 @@ where
 
     pub fn ok(request: Request, msg: T) -> Response<T> {
         Response {
-            request_id: request.id,
+            id: request.id * -1,
             msg: Some(Box::new(msg)),
             err: None,
         }
@@ -93,7 +81,7 @@ where
     #[allow(dead_code)]
     pub fn empty(request: Request) -> Response<T> {
         Response {
-            request_id: request.id,
+            id: request.id,
             msg: None,
             err: None,
         }
@@ -191,8 +179,3 @@ fn hello() -> Request {
         msg: serde_json::Value::Null,
     }
 }
-
-// fn decode_message(msg: &str) {
-//     let mut msg_length = 0u64;
-//     let header_len = varinteger::decode(msg.as_bytes(), &mut msg_length);
-// }
