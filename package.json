@@ -1,6 +1,6 @@
 {
   "name": "@archipel/sonar",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "A tantivy search engine",
   "main": "src-nodejs/index.js",
   "scripts": {
