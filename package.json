@@ -1,5 +1,5 @@
 {
-  "name": "@archipel/sonar",
+  "name": "@arso-project/sonar-tantivy",
   "version": "0.2.0",
   "description": "A tantivy search engine",
   "main": "src-nodejs/index.js",
@@ -7,7 +7,7 @@
     "postinstall": "node scripts/install.js",
     "test": "tape test/*.js"
   },
-  "repository": "https://github.com/Frando/sonar",
+  "repository": "https://github.com/arso-project/sonar-tantivy",
   "author": "Franz Heinzmann",
   "license": "MIT",
   "dependencies": {
