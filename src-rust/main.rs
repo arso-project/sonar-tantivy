@@ -18,6 +18,7 @@ use std::path::PathBuf;
 /// - for safety, all index writers should be destroyed before (but there would be none usually - only for merges maybe)
 mod handles;
 mod index;
+mod query;
 mod rpc;
 
 fn main() -> io::Result<()> {
@@ -35,6 +36,7 @@ fn main() -> io::Result<()> {
     rpc.at("index_exists", &handles::index_exists);
     rpc.at("add_documents", &handles::add_documents);
     rpc.at("query", &handles::query);
+    rpc.at("query_json", &query::query_json);
     rpc.at("query_multi", &handles::query_multi);
     rpc.at("add_segment", &handles::add_segment);
     rpc.at("add_segments", &handles::add_segments);

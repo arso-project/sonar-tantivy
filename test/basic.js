@@ -29,5 +29,33 @@ test('basic indexing and query', async t => {
 
   await catalog.close()
   await cleanup()
+  console.log('HERE')
+  t.end()
+})
+
+test.only('basic indexing and query', async t => {
+  const [dir, cleanup] = await tempdir()
+  const catalog = new Sonar(dir)
+  const schema = getSchema()
+  const index = await catalog.openOrCreate('index-name', schema)
+  const docs = getDocs()
+  await index.add(docs)
+  const query = {
+    query: {
+      bool: {
+        must: [{ term: { body: 'hi' } }],
+        must_not: [{ term: { title: 'world' } }]
+      }
+    }
+  }
+  console.log('QUERY', query.query)
+  let results = await index.queryJson(query)
+  console.log('RESULTS 1', typeof results, results)
+  t.equal(results.docs.length, 1, 'one result')
+  query.query.bool.must_not[0].term.title = 'foo'
+  console.log('QUERY', query.query)
+  results = await index.queryJson(query)
+  console.log('RESULTS 2', results)
+  t.equal(results.docs.length, 2, 'two result')
   t.end()
 })

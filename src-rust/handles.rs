@@ -19,6 +19,8 @@ pub enum Res {
     QueryResponse(QueryResponse),
     QueryMultiResponse(QueryMultiResponse),
     Bool(bool),
+    // HACK: Return serde_json::Value!
+    Json(String),
 }
 
 impl Res {

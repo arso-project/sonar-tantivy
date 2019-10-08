@@ -100,6 +100,12 @@ class Index {
     return this.request('query', { index: this.name, query, limit, snippet_field: snippetField })
   }
 
+  async queryJson (search, opts = {}) {
+    const response = await this.request('query_json', { index: this.name, search })
+    // TODO: Why is this needed??
+    return JSON.parse(response)
+  }
+
   async add (docs) {
     return this.addDocuments(docs)
   }
