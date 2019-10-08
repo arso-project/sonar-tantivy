@@ -5,8 +5,8 @@ const os = require('os')
 const toml = require('toml')
 const { execSync, exec } = require('child_process')
 
-const REPO_NAME = 'sonar'
-const REPO_ORG = 'Frando'
+const REPO_NAME = 'sonar-tantivy'
+const REPO_ORG = 'arso-project'
 
 const BASE_PATH = p.join(__dirname, '..')
 const CARGO_PATH = p.join(BASE_PATH, 'Cargo.toml')

@@ -12,7 +12,7 @@ sudo: required
 env:
   global:
     # TODO Update this to match the name of your project.
-    - PROJECT_NAME=sonar
+    - PROJECT_NAME=sonar-tantivy
     - BINARY_NAME=sonar-tantivy
 
 matrix:
