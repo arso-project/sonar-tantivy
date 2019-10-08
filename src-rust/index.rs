@@ -136,7 +136,7 @@ impl IndexCatalog {
 
 pub struct IndexHandle {
     pub index: Index,
-    pub reader: Option<IndexReader>,
+    pub reader: Option<Arc<IndexReader>>,
     // pub writer: Option<IndexWriter>,
     pub writer: Option<Arc<RwLock<IndexWriter>>>,
     pub query_parser: Option<QueryParser>,
@@ -185,6 +185,11 @@ impl IndexHandle {
         Ok(Arc::clone(self.writer.as_ref().unwrap()))
     }
 
+    pub fn get_reader(&mut self) -> Result<Arc<IndexReader>> {
+        self.ensure_reader()?;
+        Ok(Arc::clone(self.reader.as_ref().unwrap()))
+    }
+
     fn ensure_writer(&mut self) -> Result<()> {
         if self.writer.is_none() {
             let writer = self.index.writer(50_000_000)?;
@@ -201,6 +206,7 @@ impl IndexHandle {
                 .reader_builder()
                 .reload_policy(ReloadPolicy::OnCommit)
                 .try_into()?;
+            let reader = Arc::new(reader);
             self.reader = Some(reader);
         }
         Ok(())
@@ -280,10 +286,7 @@ impl IndexHandle {
         let existing_segment_ids = self.index.searchable_segment_ids()?;
 
         if !existing_segment_ids.contains(&segment_id) {
-            let meta = self
-                .index
-                .inventory()
-                .new_segment_meta(segment_id, max_doc as u32);
+            let meta = self.index.new_segment_meta(segment_id, max_doc as u32);
             segments.push(meta);
             let schema = self.index.schema();
             // add the counter of docs in segment to the index counter
