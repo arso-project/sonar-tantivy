@@ -40,6 +40,7 @@ fn main() -> io::Result<()> {
     rpc.at("query_multi", &handles::query_multi);
     rpc.at("add_segment", &handles::add_segment);
     rpc.at("add_segments", &handles::add_segments);
+    rpc.at("delete_index", &handles::delete_index);
     rpc.stdio_loop();
     Ok(())
 }

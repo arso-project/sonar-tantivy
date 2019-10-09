@@ -47,6 +47,12 @@ pub fn create_index(catalog: &mut IndexCatalog, request: &Request) -> Result<Res
     Ok(Res::empty())
 }
 
+pub fn delete_index(catalog: &mut IndexCatalog, request: &Request) -> Result<Res, Error> {
+    let name: String = request.message()?;
+    catalog.delete_index(name)?;
+    Ok(Res::empty())
+}
+
 pub fn create_ram_index(catalog: &mut IndexCatalog, request: &Request) -> Result<Res, Error> {
     let req: CreateIndex = request.message()?;
     let schema_json = serde_json::to_string(&req.schema)?;
