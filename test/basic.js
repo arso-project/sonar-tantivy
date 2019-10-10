@@ -80,5 +80,6 @@ test('basic indexing and query', async t => {
   console.log('RESULTS 2', results)
   t.equal(results.docs.length, 2, 'two result')
   catalog.close()
-  cleanup(() => t.end())
+  await cleanup()
+  t.end()
 })
