@@ -1,6 +1,6 @@
 [package]
 name = "sonar-tantivy"
-version = "0.2.1"
+version = "0.2.2"
 authors = ["Franz Heinzmann (Frando) <frando@unbiskant.org>"]
 edition = "2018"
 repository = "https://github.com/arso-project/sonar-tantivy"
@@ -10,7 +10,7 @@ name = "sonar-tantivy"
 path = "src-rust/main.rs"
 
 [dependencies]
-tantivy = { git = "https://github.com/tantivy-search/tantivy.git", branch = "master" }
+tantivy = { git = "https://github.com/tantivy-search/tantivy.git", rev = "7e08e0047bf842d2ce0f9cd7791451bffb85e2f6" }
 serde_json = { version = "^1.0", features = ["preserve_order"] }
 serde = { version = "^1.0", features = ["derive"] }
 toshi-query = { git = "https://github.com/arso-project/Toshi.git", branch = "toshi-query-tantivymaster" }
