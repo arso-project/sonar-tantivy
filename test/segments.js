@@ -15,8 +15,8 @@ test('basic indexing and query', async t => {
   await index1.add(getDocs())
   await index2.add(getDocs2())
 
-  let res1 = await index1.query('hi')
-  let res2 = await index2.query('hi')
+  const res1 = await index1.query('hi')
+  const res2 = await index2.query('hi')
 
   t.equal(res1.length, 2)
   t.equal(res2.length, 2)
@@ -35,7 +35,7 @@ test('basic indexing and query', async t => {
 
   await index2.addSegments(await index1.segmentInfo())
 
-  let resFinal = await index2.query('hi')
+  const resFinal = await index2.query('hi')
   t.equal(resFinal.length, 4, '4 results!')
   t.deepEqual(toIds(resFinal), ['first1', 'first2', 'second1', 'second2'])
 

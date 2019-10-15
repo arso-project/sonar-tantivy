@@ -57,13 +57,13 @@ pub fn create_ram_index(catalog: &mut IndexCatalog, request: &Request) -> Result
     let req: CreateIndex = request.message()?;
     let schema_json = serde_json::to_string(&req.schema)?;
     let schema: tantivy::schema::Schema = serde_json::from_str(&schema_json)?;
-    catalog.create_ram_index(req.name.clone(), schema)?;
+    catalog.create_ram_index(req.name, schema)?;
     Ok(Res::empty())
 }
 
 pub fn index_exists(catalog: &mut IndexCatalog, request: &Request) -> Result<Res, Error> {
     let name: String = request.message()?;
-    let has = match catalog.get_index(&name) {
+    let has = match catalog.get_index_handle(&name) {
         Ok(_) => true,
         Err(_) => false,
     };
@@ -79,7 +79,7 @@ pub struct AddDocuments {
 
 pub fn add_documents(catalog: &mut IndexCatalog, request: &Request) -> Result<Res, Error> {
     let req: AddDocuments = request.message()?;
-    let handle = catalog.get_index(&req.index)?;
+    let handle = catalog.get_index_handle(&req.index)?;
     handle.add_documents(&req.documents)?;
     Ok(Res::empty())
 }
@@ -139,7 +139,7 @@ impl fmt::Debug for QueryResponseDocument {
 pub fn query(catalog: &mut IndexCatalog, request: &Request) -> Result<Res, Error> {
     let req: Query = request.message()?;
     // eprintln!("QUERY {:?}", req);
-    let handle = catalog.get_index(&req.index)?;
+    let handle = catalog.get_index_handle(&req.index)?;
     let tantivy_results = handle.query(&req.query, req.limit.unwrap_or(10), req.snippet_field)?;
     let mut results = vec![];
     for (score, doc, snippet) in tantivy_results {
@@ -190,14 +190,14 @@ pub struct AddSegments {
 
 pub fn add_segment(catalog: &mut IndexCatalog, request: &Request) -> Result<Res, Error> {
     let req: AddSegment = request.message()?;
-    let handle = catalog.get_index(&req.index)?;
+    let handle = catalog.get_index_handle(&req.index)?;
     handle.add_segment(&req.segment_id, req.max_doc)?;
     Ok(Res::empty())
 }
 
 pub fn add_segments(catalog: &mut IndexCatalog, request: &Request) -> Result<Res, Error> {
     let req: AddSegments = request.message()?;
-    let handle = catalog.get_index(&req.index)?;
+    let handle = catalog.get_index_handle(&req.index)?;
     handle.add_segments(req.segments)?;
     Ok(Res::empty())
 }

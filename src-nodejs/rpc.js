@@ -56,7 +56,7 @@ class RpcPipe extends Duplexify {
     this.out = new Transform({
       objectMode: true,
       transform (chunk, enc, done) {
-        let json = JSON.stringify(chunk)
+        const json = JSON.stringify(chunk)
         this.push(json + '\n')
         done()
       }

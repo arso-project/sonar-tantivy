@@ -46,7 +46,6 @@ impl IndexCatalog {
         fs::create_dir_all(&base_path)
     }
 
-
     fn load_all(&mut self) {
         //let mut index_paths = vec![];
         if let Ok(entries) = fs::read_dir(&self.base_path) {
@@ -86,23 +85,16 @@ impl IndexCatalog {
             )
         }
     }
-    
-    fn get_indexpath(&mut self, name : &str) -> PathBuf{
+
+    fn get_index_handlepath(&mut self, name: &str) -> PathBuf {
         let mut index_path = self.base_path.clone();
         index_path.push(&name);
         index_path
     }
-    
-    pub fn delete_index(&mut self, name:String) -> Result<()> {
-        let index_path = self.get_indexpath(&name);
-        fs::remove_dir_all(&index_path);
-        self.indexes.remove(&name);
-        Ok(())
-    }
 
     pub fn create_index(&mut self, name: String, schema: Schema) -> Result<()> {
         // eprintln!("create_index {}", name);
-        let index_path = self.get_indexpath(&name);
+        let index_path = self.get_index_handlepath(&name);
         fs::create_dir_all(&index_path)?;
         let index = Index::create_in_dir(&index_path, schema)?;
         let handle = IndexHandle::new(index);
@@ -117,10 +109,63 @@ impl IndexCatalog {
         Ok(())
     }
 
-    pub fn get_index(&mut self, name: &String) -> Result<&mut IndexHandle> {
-        // eprintln!("get_index {}", name);
+    pub fn delete_index(&mut self, name: String) -> Result<()> {
+        let index_path = self.get_index_handlepath(&name);
+        fs::remove_dir_all(&index_path)?;
+        self.indexes.remove(&name);
+        Ok(())
+    }
+
+    fn swap_index(&mut self, index_name1: String, index_name2: String) -> Result<()> {
+        let handle_1 = self
+            .indexes
+            .remove(&index_name1)
+            .ok_or(TantivyError::InvalidArgument(
+                format!("Invalid index 1: {}", index_name1).to_string(),
+            ))?;
+        let handle_2 = self
+            .indexes
+            .remove(&index_name2)
+            .ok_or(TantivyError::InvalidArgument(
+                format!("Invalid index 2: {}", index_name2).to_string(),
+            ))?;
+        self.indexes.insert(index_name1.clone(), handle_2);
+        self.indexes.insert(index_name2.clone(), handle_1);
+        Ok(())
+    }
+
+    fn update_schema(&mut self, name: String, schema: Schema) -> Result<()> {
+        if !self.indexes.contains_key(&name) {
+            self.create_index(name, schema)?;
+        } else {
+            let temp_name = "temp".to_string();
+            let schema_builder = Schema::builder();
+            let tmp_schema = schema_builder.build();
+            self.create_index(temp_name.clone(), tmp_schema)?;
+            self.swap_index(name.clone(), temp_name)?;
+            self.delete_index(name.clone())?;
+            self.create_index(name.clone(), schema)?;
+            let index_handle = self.get_index_handle(&name)?;
+            index_handle.index_version += 1;
+        }
+        Ok(())
+    }
+
+    pub fn add_fields(&mut self, name: String, schema: Schema) -> Result<()> {
+        let handle = self.get_index_handle(&name)?;
+        let index = &handle.index;
+        for field in schema.fields() {
+            if !(index.schema().fields().contains(field)) {
+                return self.update_schema(name, schema);
+            }
+        }
+        Ok(())
+    }
+
+    pub fn get_index_handle(&mut self, name: &String) -> Result<&mut IndexHandle> {
+        // eprintln!("get_index_handle {}", name);
         // eprintln!("indexes: {:?}", self.indexes.keys());
-        // eprintln!("get_index", name);
+        // eprintln!("get_index_handle", name);
         let handle: &mut IndexHandle = match self.indexes.get_mut(name) {
             Some(handle) => Ok(handle),
             None => Err(TantivyError::InvalidArgument(
@@ -138,7 +183,7 @@ impl IndexCatalog {
         for entry in indexes {
             let index_key = entry;
             if self.indexes.contains_key(index_key) {
-                let index = self.get_index(&index_key.to_string())?;
+                let index = self.get_index_handle(&index_key.to_string())?;
                 let res = index.query(query, 100, None)?;
                 results.push((index_key.clone(), res));
             }
@@ -149,6 +194,7 @@ impl IndexCatalog {
 
 pub struct IndexHandle {
     pub index: Index,
+    pub index_version: i32,
     pub reader: Option<Arc<IndexReader>>,
     // pub writer: Option<IndexWriter>,
     pub writer: Option<Arc<RwLock<IndexWriter>>>,
@@ -159,6 +205,7 @@ impl IndexHandle {
     pub fn new(index: Index) -> Self {
         IndexHandle {
             index,
+            index_version: 0,
             reader: None,
             writer: None,
             query_parser: None,
@@ -364,7 +411,7 @@ fn move_segment() {
         .create_index("testindex2".to_string(), schema.clone())
         .unwrap();
 
-    let handle1 = catalog.get_index(&"testindex1".to_string()).unwrap();
+    let handle1 = catalog.get_index_handle(&"testindex1".to_string()).unwrap();
 
     let writer_lock1 = handle1.get_writer().unwrap();
     let mut writer1 = writer_lock1.write().unwrap();
@@ -378,7 +425,7 @@ fn move_segment() {
     let index1 = handle1.index.clone();
     let mut allsegments = index1.searchable_segment_ids().unwrap();
 
-    let handle2 = catalog.get_index(&"testindex2".to_string()).unwrap();
+    let handle2 = catalog.get_index_handle(&"testindex2".to_string()).unwrap();
     let index2 = handle2.index.clone();
 
     // get the segment_id for the segment in index1 and copy the files in index2 dir

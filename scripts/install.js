@@ -87,7 +87,7 @@ function downloadRelease (opts, cb) {
     // TODO: Handle windows?
     try {
       execSync(`tar -xzf ${tarfile} -C ${dest}`)
-      for (let bin of opts.binaries) {
+      for (const bin of opts.binaries) {
         if (!fs.existsSync(p.join(dest, bin))) return done(new Error('Error: Binary is not in archive.'))
       }
       done()
@@ -134,11 +134,11 @@ function download (url, dest, opts, cb) {
       return cb(new Error(`Download failed: ${response.statusCode} ${response.statusMessage}`))
     }
 
-    let size = response.headers['content-length']
+    const size = response.headers['content-length']
     let len = 0
-    let msg = '  Downloading ' + pretty(size)
-    let status = () => console.log(msg + '... ' + Math.round((len / size) * 100) + '%')
-    let report = setInterval(status, 1000)
+    const msg = '  Downloading ' + pretty(size)
+    const status = () => console.log(msg + '... ' + Math.round((len / size) * 100) + '%')
+    const report = setInterval(status, 1000)
     status()
     response.pipe(target)
     response.on('data', d => (len = len + d.length))
@@ -155,7 +155,7 @@ function download (url, dest, opts, cb) {
 
 function copyFiles (files, srcPath, dstPath, cb) {
   cb = once(cb)
-  let paths = files.map(f => [p.join(srcPath, f), p.join(dstPath, f)])
+  const paths = files.map(f => [p.join(srcPath, f), p.join(dstPath, f)])
   let pending = paths.length
   paths.forEach(([src, dst]) => fs.copyFile(src, dst, done))
   function done (err) {
@@ -173,8 +173,8 @@ function once (fn) {
   }
 }
 function pretty (bytes) {
-  let prefixes = ['', 'KB', 'MB', 'GB', 'TB']
-  let base = 1024
+  const prefixes = ['', 'KB', 'MB', 'GB', 'TB']
+  const base = 1024
   for (let pow = prefixes.length - 1; pow >= 0; pow--) {
     if (bytes > Math.pow(base, pow)) {
       return Math.round((bytes / Math.pow(base, pow)) * 100) / 100 + ' ' + prefixes[pow]

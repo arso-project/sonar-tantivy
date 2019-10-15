@@ -20,7 +20,7 @@ struct QueryResponse {
 pub fn query_json(catalog: &mut IndexCatalog, request: &Request) -> Result<Res, Error> {
     let request: QueryRequest = request.message()?;
     // eprintln!("QUERY {:?}", req);
-    let handle = catalog.get_index(&request.index)?;
+    let handle = catalog.get_index_handle(&request.index)?;
     // let tantivy_results = handle.query(&req.query, req.limit.unwrap_or(10), req.snippet_field)?;
     let reader = handle.get_reader()?;
     let searcher = reader.searcher();

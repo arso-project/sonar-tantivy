@@ -19,7 +19,7 @@ function tempdir () {
 function copyFiles (src, dst, files) {
   return new Promise((resolve, reject) => {
     let pending = files.length
-    for (let file of files) {
+    for (const file of files) {
       fs.copyFile(p.join(src, file), p.join(dst, file), done)
     }
     function done (err) {

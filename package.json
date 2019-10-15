@@ -11,6 +11,7 @@
   "author": "Franz Heinzmann",
   "license": "MIT",
   "dependencies": {
+    "@archipel/sonar": "^0.1.2",
     "debug": "^4.1.1",
     "duplexify": "^4.1.1",
     "pump": "^3.0.0",

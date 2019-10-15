@@ -12,9 +12,9 @@ async function example () {
     throw err
   })
   const opts = { ram: true }
-  let i1 = await catalog.openOrCreate('foo', fixtures.schema, opts)
+  const i1 = await catalog.openOrCreate('foo', fixtures.schema, opts)
   await i1.addDocuments(fixtures.docs)
-  let i2 = await catalog.openOrCreate('bar', fixtures.schema, opts)
+  const i2 = await catalog.openOrCreate('bar', fixtures.schema, opts)
   await i2.addDocuments(fixtures.docs2)
 
   console.log('query i1', await i1.query('hello'))
