@@ -53,6 +53,15 @@ pub fn delete_index(catalog: &mut IndexCatalog, request: &Request) -> Result<Res
     Ok(Res::empty())
 }
 
+pub fn update_schema(catalog: &mut IndexCatalog, request: &Request) -> Result<Res, Error> {
+    let req: CreateIndex = request.message()?;
+    let name = req.name;
+    let schema_json = serde_json::to_string(&req.schema)?;
+    let schema: tantivy::schema::Schema = serde_json::from_str(&schema_json)?;
+    catalog.update_schema(name, schema)?;
+    Ok(Res::empty())
+}
+
 pub fn create_ram_index(catalog: &mut IndexCatalog, request: &Request) -> Result<Res, Error> {
     let req: CreateIndex = request.message()?;
     let schema_json = serde_json::to_string(&req.schema)?;

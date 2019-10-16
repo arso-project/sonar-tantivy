@@ -34,6 +34,7 @@ fn main() -> io::Result<()> {
     rpc.at("create_index", &handles::create_index);
     rpc.at("create_ram_index", &handles::create_ram_index);
     rpc.at("index_exists", &handles::index_exists);
+    rpc.at("update_schema", &handles::update_schema);
     rpc.at("add_documents", &handles::add_documents);
     rpc.at("query", &handles::query);
     rpc.at("query_json", &query::query_json);

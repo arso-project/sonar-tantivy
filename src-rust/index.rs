@@ -116,50 +116,34 @@ impl IndexCatalog {
         Ok(())
     }
 
-    fn swap_index(&mut self, index_name1: String, index_name2: String) -> Result<()> {
-        let handle_1 = self
-            .indexes
-            .remove(&index_name1)
-            .ok_or(TantivyError::InvalidArgument(
-                format!("Invalid index 1: {}", index_name1).to_string(),
-            ))?;
-        let handle_2 = self
-            .indexes
-            .remove(&index_name2)
-            .ok_or(TantivyError::InvalidArgument(
-                format!("Invalid index 2: {}", index_name2).to_string(),
-            ))?;
-        self.indexes.insert(index_name1.clone(), handle_2);
-        self.indexes.insert(index_name2.clone(), handle_1);
-        Ok(())
-    }
-
-    fn update_schema(&mut self, name: String, schema: Schema) -> Result<()> {
+    pub fn update_schema(&mut self, name: String, schema: Schema) -> Result<()> {
         if !self.indexes.contains_key(&name) {
             self.create_index(name, schema)?;
         } else {
-            let temp_name = "temp".to_string();
-            let schema_builder = Schema::builder();
-            let tmp_schema = schema_builder.build();
-            self.create_index(temp_name.clone(), tmp_schema)?;
-            self.swap_index(name.clone(), temp_name)?;
-            self.delete_index(name.clone())?;
-            self.create_index(name.clone(), schema)?;
-            let index_handle = self.get_index_handle(&name)?;
-            index_handle.index_version += 1;
+            if self.check_fields(name.clone(), schema.clone()) == true {
+                let temp_name = "temp".to_string();
+                let schema_builder = Schema::builder();
+                let tmp_schema = schema_builder.build();
+                self.create_index(temp_name.clone(), tmp_schema)?;
+                self.swap_index(name.clone(), temp_name)?;
+                self.delete_index(name.clone())?;
+                self.create_index(name.clone(), schema)?;
+                let index_handle = self.get_index_handle(&name)?;
+                index_handle.index_version += 1;
+            }
         }
         Ok(())
     }
 
-    pub fn add_fields(&mut self, name: String, schema: Schema) -> Result<()> {
-        let handle = self.get_index_handle(&name)?;
+    fn check_fields(&mut self, name: String, schema: Schema) -> bool {
+        let handle = self.get_index_handle(&name).unwrap();
         let index = &handle.index;
         for field in schema.fields() {
             if !(index.schema().fields().contains(field)) {
-                return self.update_schema(name, schema);
+                return true;
             }
         }
-        Ok(())
+        return false;
     }
 
     pub fn get_index_handle(&mut self, name: &String) -> Result<&mut IndexHandle> {
@@ -189,6 +173,23 @@ impl IndexCatalog {
             }
         }
         Ok(results)
+    }
+    fn swap_index(&mut self, index_name1: String, index_name2: String) -> Result<()> {
+        let handle_1 = self
+            .indexes
+            .remove(&index_name1)
+            .ok_or(TantivyError::InvalidArgument(
+                format!("Invalid index 1: {}", index_name1).to_string(),
+            ))?;
+        let handle_2 = self
+            .indexes
+            .remove(&index_name2)
+            .ok_or(TantivyError::InvalidArgument(
+                format!("Invalid index 2: {}", index_name2).to_string(),
+            ))?;
+        self.indexes.insert(index_name1.clone(), handle_2);
+        self.indexes.insert(index_name2.clone(), handle_1);
+        Ok(())
     }
 }
 
