@@ -46,7 +46,7 @@ module.exports = class IndexCatalog extends EventEmitter {
       const method = 'delete_index'
       return this.pipe.request(method, name)
     } else {
-      throw new Error(`Index ${name} is not here.`)
+      throw new Error(`Index ${name} does not exist.`)
     }
   }
 

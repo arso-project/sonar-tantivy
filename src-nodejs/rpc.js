@@ -81,7 +81,7 @@ class RpcPipe extends Duplexify {
   request (method, msg, cb) {
     if (!cb) {
       return new Promise((resolve, reject) => {
-        cb = (err, data) => err ? reject(err) : resolve(data)
+        cb = (err, data) => err ? reject(new Error(err)) : resolve(data)
         this._sendRequest(method, msg, cb)
       })
     } else {
