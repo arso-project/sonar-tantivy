@@ -1,6 +1,6 @@
 const test = require('tape')
 const { tempdir } = require('./lib/util')
-const { getDocs, getDocs2, getSchema } = require('./lib/fixtures')
+const { getDocs, getDocs2, getSchema, getSchema2 } = require('./lib/fixtures')
 
 const Sonar = require('..')
 
@@ -81,5 +81,20 @@ test('basic indexing and query', async t => {
   t.equal(results.docs.length, 2, 'two result')
   catalog.close()
   await cleanup()
+  t.end()
+})
+
+test.only('create index and update schema', async t => {
+  console.log("HELLO")
+  const [dir, cleanup] = await tempdir()
+  const catalog = new Sonar(dir)
+  const schema = getSchema()
+  const schema2 = getSchema2()
+  const index = await catalog.openOrCreate('index', schema)
+  console.log("SCHEMA: ",await index.getSchema())
+  t.equal(await index.getSchema(), schema)
+  catalog.update('index', schema2)
+  t.equal(await Json.parse(index.getSchema()), schema2)
+  catalog.close()
   t.end()
 })

@@ -240,6 +240,9 @@ impl IndexHandle {
         }
         Ok(())
     }
+    pub fn get_schema(&mut self) -> Result<Schema> {
+        Ok(self.index.schema())
+    }
 
     pub fn get_writer(&mut self) -> Result<Arc<RwLock<IndexWriter>>> {
         self.ensure_writer()?;

@@ -52,6 +52,13 @@ pub fn delete_index(catalog: &mut IndexCatalog, request: &Request) -> Result<Res
     catalog.delete_index(name)?;
     Ok(Res::empty())
 }
+pub fn get_schema(catalog: &mut IndexCatalog, request: &Request) -> Result<Res , Error>{
+    let name: String = request.message()?;
+    let index_handle = catalog.get_index_handle(&name)?;
+    let schema = index_handle.get_schema()?;
+    let schema_string = serde_json::to_string(&schema)?;
+    Ok(Res::Json(schema_string))
+}
 
 pub fn update_schema(catalog: &mut IndexCatalog, request: &Request) -> Result<Res, Error> {
     let req: CreateIndex = request.message()?;

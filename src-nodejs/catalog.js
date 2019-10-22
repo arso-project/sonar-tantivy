@@ -43,11 +43,19 @@ module.exports = class IndexCatalog extends EventEmitter {
 
   async delete (name) {
     if (await this.has(name)) {
-      const method = 'delete_index'
-      return this.pipe.request(method, name)
+      return this.pipe.request('delete_index', name)
     } else {
       throw new Error(`Index ${name} is not here.`)
     }
+  }
+
+  async update (name, schema, opts) {
+    if (await this.has(name)) {
+      return this.pipe.request('update_schema', { name, schema })
+    } else {
+      return this.create(name, schema, opts)
+    }
+    
   }
 
   async openOrCreate (name, schema, opts) {
@@ -126,6 +134,9 @@ class Index {
 
   async addSegments (segments) {
     return this.request('add_segments', { index: this.name, segments })
+  }
+  async getSchema () {
+    return this.request('get_schema', this.name)
   }
 }
 
