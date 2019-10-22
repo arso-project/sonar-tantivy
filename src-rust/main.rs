@@ -1,4 +1,6 @@
 extern crate failure;
+#[macro_use]
+extern crate log;
 use crate::index::IndexCatalog;
 use rpc::Rpc;
 use std::env;
