@@ -55,7 +55,6 @@ module.exports = class IndexCatalog extends EventEmitter {
     } else {
       return this.create(name, schema, opts)
     }
-    
   }
 
   async openOrCreate (name, schema, opts) {
@@ -136,7 +135,8 @@ class Index {
     return this.request('add_segments', { index: this.name, segments })
   }
   async getSchema () {
-    return this.request('get_schema', this.name)
+    const schemaJson = await this.request('get_schema', this.name)
+    return JSON.parse(schemaJson)
   }
 }
 
