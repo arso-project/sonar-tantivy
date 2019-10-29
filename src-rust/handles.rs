@@ -52,7 +52,7 @@ pub fn delete_index(catalog: &mut IndexCatalog, request: &Request) -> Result<Res
     catalog.delete_index(name)?;
     Ok(Res::empty())
 }
-pub fn get_schema(catalog: &mut IndexCatalog, request: &Request) -> Result<Res , Error>{
+pub fn get_schema(catalog: &mut IndexCatalog, request: &Request) -> Result<Res, Error> {
     let name: String = request.message()?;
     let index_handle = catalog.get_index_handle(&name)?;
     let schema = index_handle.get_schema()?;

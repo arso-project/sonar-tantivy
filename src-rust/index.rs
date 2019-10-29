@@ -120,12 +120,12 @@ impl IndexCatalog {
         if !self.indexes.contains_key(&name) {
             self.create_index(name, schema)?;
         } else {
-            if self.check_fields(name.clone(), schema.clone()) == true {
-                let temp_name = "temp".to_string();
+            if !self.fields_match(&name, &schema) {
+                let tmp_name = format!("temp.{}", &name);
                 let schema_builder = Schema::builder();
                 let tmp_schema = schema_builder.build();
-                self.create_index(temp_name.clone(), tmp_schema)?;
-                self.swap_index(name.clone(), temp_name)?;
+                self.create_index(tmp_name.clone(), tmp_schema)?;
+                self.swap_index(name.clone(), tmp_name)?;
                 self.delete_index(name.clone())?;
                 self.create_index(name.clone(), schema)?;
                 let index_handle = self.get_index_handle(&name)?;
@@ -135,15 +135,15 @@ impl IndexCatalog {
         Ok(())
     }
 
-    fn check_fields(&mut self, name: String, schema: Schema) -> bool {
-        let handle = self.get_index_handle(&name).unwrap();
+    fn fields_match(&mut self, name: &String, schema: &Schema) -> bool {
+        let handle = self.get_index_handle(name).unwrap();
         let index = &handle.index;
         for field in schema.fields() {
             if !(index.schema().fields().contains(field)) {
-                return true;
+                return false;
             }
         }
-        return false;
+        return true;
     }
 
     pub fn get_index_handle(&mut self, name: &String) -> Result<&mut IndexHandle> {

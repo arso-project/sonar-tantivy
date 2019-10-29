@@ -7,7 +7,7 @@ exports.getDocs = function () {
 
 exports.getDocs2 = function () {
   return [
-    { id: 'second1', textdump: 'second1 Bonjour monde! hi second tres bien', title: 'Bonjour monde!', body: 'hi second tres bien' },
+    { id: 'second1', textdump: 'second1 Bonjour monde! hi second tres bien',title: 'Bonjour monde!', body: 'hi second tres bien' },
     { id: 'second2', textdump: 'ALERT', title: 'Ciao mondo!', body: 'hi second buon giorno' }
   ]
 }
@@ -72,9 +72,9 @@ exports.getSchema2 = function () {
     },
     {
       name: 'id',
-      type: 'text',
+      type: 'i64',
       options: {
-        indexing: null,
+        indexed: true,
         stored: true
       }
     },
