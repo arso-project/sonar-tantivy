@@ -121,15 +121,14 @@ function exit (code, msg) {
   process.exit(code)
 }
 
-function download (url, dest, opts, cb) {
-  if (!cb) return download(url, dest, {}, opts)
+function download (url, dest, cb) {
   cb = once(cb)
   const target = fs.createWriteStream(dest)
-  const request = https.get(url, opts, response => {
+  const request = https.get(url, response => {
     // console.log(`  -> Status ${response.statusCode} ${response.statusMessage}`)
     if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
       // console.log('  -> Redirecting...')
-      return download(response.headers.location, dest, opts, cb)
+      return download(response.headers.location, dest, cb)
     } else if (response.statusCode !== 200) {
       return cb(new Error(`Download failed: ${response.statusCode} ${response.statusMessage}`))
     }
