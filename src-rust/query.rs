@@ -103,8 +103,7 @@ fn search_index(index: &Index, searcher: &Searcher, search: Search) -> ToshiResu
             Query::Raw { raw } => {
                 let fields: Vec<Field> = schema
                     .fields()
-                    .iter()
-                    .filter_map(|e| schema.get_field(e.name()))
+                    .filter_map(|(_, e)| schema.get_field(e.name()))
                     .collect();
                 let query_parser = QueryParser::for_index(index, fields);
                 let query = query_parser.parse_query(&raw)?;
