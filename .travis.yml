@@ -37,13 +37,13 @@ matrix:
       os: osx
 
     # Windows
-    - env: TARGET=x86_64-pc-windows-gnu
-      dist: trusty
-      sudo: required
-      addons:
-        apt:
-          packages:
-            - gcc-mingw-w64
+    # - env: TARGET=x86_64-pc-windows-gnu
+    #   dist: trusty
+    #   sudo: required
+    #   addons:
+    #     apt:
+    #       packages:
+    #         - gcc-mingw-w64
 
     # Testing other channels
     # - env: TARGET=x86_64-unknown-linux-gnu
