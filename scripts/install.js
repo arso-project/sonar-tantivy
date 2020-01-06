@@ -4,18 +4,28 @@ const p = require('path')
 const os = require('os')
 const toml = require('toml')
 const { execSync, exec } = require('child_process')
+const debug = require('debug')
 
 const REPO_NAME = 'sonar-tantivy'
 const REPO_ORG = 'arso-project'
 
+const TARGETS = {
+  linux: {
+    x64: 'x86_64-unknown-linux-gnu',
+    arm: 'armv7-unknown-linux-gnueabihf',
+    arm64: 'aarch64-unknown-linux-gnu'
+  },
+  windows: {
+    x64: 'x86_64-pc-windows-gnu'
+  },
+  darwin: {
+    x64: 'x86_64-apple-darwin'
+  }
+}
+
 const BASE_PATH = p.join(__dirname, '..')
 const CARGO_PATH = p.join(BASE_PATH, 'Cargo.toml')
 const DIST_PATH = p.join(BASE_PATH, 'dist')
-
-const OS_TARGETS = {
-  linux: 'unknown-linux-gnu',
-  darwin: 'apple-darwin'
-}
 
 try {
   start((err) => {
@@ -104,10 +114,15 @@ function downloadRelease (opts, cb) {
 function targetTriple () {
   const platform = os.platform()
   const arch = os.arch()
+
+  if (!TARGETS[platform]) {
+    throw new Error(`Platform ${platform} is not supported.`)
+  }
+  if (!TARGETS[platform][arch]) {
+    throw new Error(`Architecture ${arch} is not supported.`)
+  }
   if (arch !== 'x64') throw new Error('Only x64 is supported at the moment.')
-  if (!OS_TARGETS[platform]) throw new Error(`Platform ${platform} is not supported.`)
-  const target = OS_TARGETS[platform]
-  return `x86_64-${target}`
+  return TARGETS[platform][arch]
 }
 
 function cargoToml () {
