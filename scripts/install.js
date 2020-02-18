@@ -15,7 +15,7 @@ const TARGETS = {
     arm: 'armv7-unknown-linux-gnueabihf',
     arm64: 'aarch64-unknown-linux-gnu'
   },
-  windows: {
+  win32: {
     x64: 'x86_64-pc-windows-gnu'
   },
   darwin: {
@@ -37,8 +37,12 @@ try {
 
 function start (cb) {
   const ct = cargoToml()
+  const platform = os.platform()
 
   const binaries = ct.bin ? ct.bin.map(b => b.name) : [ct.name]
+  binaries.forEach((bin, i) => {
+    if (platform === 'win32') binaries[i] = bin + '.exe'
+  })
 
   const opts = {
     tag: `v${ct.package.version}`,
@@ -119,9 +123,8 @@ function targetTriple () {
     throw new Error(`Platform ${platform} is not supported.`)
   }
   if (!TARGETS[platform][arch]) {
-    throw new Error(`Architecture ${arch} is not supported.`)
+    throw new Error(`Architecture ${arch} is not supported on platform ${platform}.`)
   }
-  if (arch !== 'x64') throw new Error('Only x64 is supported at the moment.')
   return TARGETS[platform][arch]
 }
 
