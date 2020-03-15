@@ -78,8 +78,9 @@ module.exports = class IndexCatalog extends EventEmitter {
     })
   }
 
-  close () {
+  close (cb) {
     this.pipe.destroy()
+    if (cb) cb()
   }
 }
 
