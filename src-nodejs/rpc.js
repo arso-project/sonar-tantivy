@@ -27,7 +27,7 @@ function commandPipe (command, args = [], opts = {}) {
   pump(procStream, rpcStream, procStream)
 
   proc.on('close', code => {
-    if (code !== 0) rpcStream.emit('error', new Error('Child process died: ' + code))
+    if (code !== null && code !== 0) rpcStream.emit('error', new Error('Child process died: ' + code))
     rpcStream.destroy()
   })
 
