@@ -49,7 +49,7 @@ jobs:
         if: matrix.os != 'ubuntu-latest'
         with:
           command: build
-          args: --release --target ${{ matrix.target }}  
+          args: --release
 
       - name: Package (Linux or MacOS)
         if: matrix.os == 'ubuntu-latest' || matrix.os == 'macOS-latest'
@@ -60,7 +60,7 @@ jobs:
       - name: Package (Windows)
         if: matrix.os == 'windows-latest'
         run: |
-          7z a ${sonar-tantivy-${{ github.ref}}-${{ matrix.target }}.zip README.md LICENSE -C target/release sonar-tantivy.exe
+          7z a ${sonar-tantivy-${{ github.ref}}-${{ matrix.target }}.zip README.md LICENSE target/release/sonar-tantivy.exe
           7z l ${sonar-tantivy-${{ github.ref}}-${{ matrix.target }}.zip
 
       - name: Release
