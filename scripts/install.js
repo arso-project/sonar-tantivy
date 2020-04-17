@@ -3,7 +3,7 @@ const https = require('https')
 const p = require('path')
 const os = require('os')
 const toml = require('toml')
-const { execSync, exec } = require('child_process')
+const { exec, spawnSync } = require('child_process')
 const debug = require('debug')
 
 const REPO_NAME = 'sonar-tantivy'
@@ -16,7 +16,7 @@ const TARGETS = {
     arm64: 'aarch64-unknown-linux-gnu'
   },
   win32: {
-    x64: 'x86_64-pc-windows-gnu'
+    x64: 'x86_64-pc-windows-msvc'
   },
   darwin: {
     x64: 'x86_64-apple-darwin'
@@ -37,7 +37,16 @@ try {
 
 function start (cb) {
   const ct = cargoToml()
-  const platform = os.platform()
+  const platform = process.env.CI_PLATFORM || os.platform()
+  const arch = process.env.CI_ARCH || os.arch()
+
+  if (!TARGETS[platform]) {
+    throw new Error(`Platform ${platform} is not supported.`)
+  }
+  if (!TARGETS[platform][arch]) {
+    throw new Error(`Architecture ${arch} is not supported on platform ${platform}.`)
+  }
+  const targetTriple = TARGETS[platform][arch]
 
   const binaries = ct.bin ? ct.bin.map(b => b.name) : [ct.name]
   binaries.forEach((bin, i) => {
@@ -47,8 +56,9 @@ function start (cb) {
   const opts = {
     tag: `v${ct.package.version}`,
     binaries,
-    targetTriple: targetTriple(),
-    dest: DIST_PATH
+    targetTriple,
+    dest: DIST_PATH,
+    platform
   }
 
   console.log(`Installing ${ct.package.name} ${opts.tag}...`)
@@ -86,21 +96,41 @@ function buildRelease (opts, cb) {
 
 function downloadRelease (opts, cb) {
   cb = once(cb)
-  const { tag, targetTriple, dest } = opts
+  const { tag, targetTriple, platform, dest } = opts
 
-  const filename = `${REPO_NAME}-${tag}-${targetTriple}.tar.gz`
+  let filename
+  if (platform === 'win32') {
+    filename = `${REPO_NAME}-${tag}-${targetTriple}.zip`
+  } else {
+    filename = `${REPO_NAME}-${tag}-${targetTriple}.tar.gz`
+  }
   const url = `https://github.com/${REPO_ORG}/${REPO_NAME}/releases/download/${tag}/${filename}`
-  const tarfile = p.join(dest, filename)
+  const filepath = p.join(dest, filename)
 
   console.log(`  Download: ${url}`)
-  download(url, tarfile, extract)
+  download(url, filepath, extract)
 
   function extract (err) {
     if (err) return done(err)
-    if (!fs.existsSync(tarfile)) return done(new Error('Error: Download failed.'))
+    if (!fs.existsSync(filepath)) return done(new Error('Error: Download failed.'))
     // TODO: Handle windows?
     try {
-      execSync(`tar -xzf ${tarfile} -C ${dest}`)
+      let res
+      if (opts.platform === 'win32') {
+        // Taken from https://github.com/feross/cross-zip/blob/master/index.js
+        res = spawnSync('powershell.exe', [
+          '-nologo',
+          '-noprofile',
+          '-command', '& { param([String]$myInPath, [String]$myOutPath); Add-Type -A "System.IO.Compression.FileSystem"; [IO.Compression.ZipFile]::ExtractToDirectory($myInPath, $myOutPath); }',
+          '-myInPath', filepath,
+          '-myOutPath', dest
+        ])
+      } else {
+        res = spawnSync('tar', ['-xzf', filepath, '-C', dest])
+      }
+      if (res.error) {
+        throw new Error('Failed to extract archive, Error: ' + res.error.message)
+      }
       for (let bin of opts.binaries) {
         if (!fs.existsSync(p.join(dest, bin))) return done(new Error('Error: Binary is not in archive.'))
       }
@@ -111,21 +141,8 @@ function downloadRelease (opts, cb) {
   }
 
   function done (err) {
-    fs.unlink(tarfile, err2 => cb(err || err2))
+    fs.unlink(filepath, err2 => cb(err || err2))
   }
-}
-
-function targetTriple () {
-  const platform = os.platform()
-  const arch = os.arch()
-
-  if (!TARGETS[platform]) {
-    throw new Error(`Platform ${platform} is not supported.`)
-  }
-  if (!TARGETS[platform][arch]) {
-    throw new Error(`Architecture ${arch} is not supported on platform ${platform}.`)
-  }
-  return TARGETS[platform][arch]
 }
 
 function cargoToml () {
