@@ -61,13 +61,13 @@ jobs:
       - name: Package (Linux or MacOS)
         if: matrix.os == 'ubuntu-latest' || matrix.os == 'macOS-latest'
         run: |
-          tar -zvcf sonar-tantivy-${{ steps.vars.outputs.tag }}-${{ matrix.target }}.tar.gz README.md LICENSE -C target/release/ sonar_tantivy
+          tar -zvcf sonar-tantivy-${{ steps.vars.outputs.tag }}-${{ matrix.target }}.tar.gz README.md LICENSE -C target/release/ sonar-tantivy
           tar -tzvf sonar-tantivy-${{ steps.vars.outputs.tag }}-${{ matrix.target }}.tar.gz
 
       - name: Package (Windows)
         if: matrix.os == 'windows-latest'
         run: |
-          7z a ${sonar-tantivy-${{ steps.vars.outputs.tag }}-${{ matrix.target }}.zip README.md LICENSE .\target\release\sonar_tantivy.exe
+          7z a ${sonar-tantivy-${{ steps.vars.outputs.tag }}-${{ matrix.target }}.zip README.md LICENSE .\target\release\sonar-tantivy.exe
           7z l ${sonar-tantivy-${{ steps.vars.outputs.tag }}-${{ matrix.target }}.zip
 
       - name: Release
