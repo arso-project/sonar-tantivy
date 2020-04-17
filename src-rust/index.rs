@@ -46,7 +46,6 @@ impl IndexCatalog {
         fs::create_dir_all(&base_path)
     }
 
-
     fn load_all(&mut self) {
         //let mut index_paths = vec![];
         if let Ok(entries) = fs::read_dir(&self.base_path) {
@@ -86,16 +85,16 @@ impl IndexCatalog {
             )
         }
     }
-    
-    fn get_indexpath(&mut self, name : &str) -> PathBuf{
+
+    fn get_indexpath(&mut self, name: &str) -> PathBuf {
         let mut index_path = self.base_path.clone();
         index_path.push(&name);
         index_path
     }
-    
-    pub fn delete_index(&mut self, name:String) -> Result<()> {
+
+    pub fn delete_index(&mut self, name: String) -> Result<()> {
         let index_path = self.get_indexpath(&name);
-        fs::remove_dir_all(&index_path);
+        fs::remove_dir_all(&index_path)?;
         self.indexes.remove(&name);
         Ok(())
     }

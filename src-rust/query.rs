@@ -3,18 +3,13 @@ use crate::index::IndexCatalog;
 use crate::rpc::Request;
 use failure::Error;
 use serde::Deserialize;
-use serde_json::Value;
 use toshi_query::search::search_index;
-use toshi_query::{Search, SearchResults};
+use toshi_query::Search;
 
 #[derive(Deserialize)]
 struct QueryRequest {
     index: String,
     search: Search,
-}
-
-struct QueryResponse {
-    results: SearchResults,
 }
 
 pub fn query_json(catalog: &mut IndexCatalog, request: &Request) -> Result<Res, Error> {

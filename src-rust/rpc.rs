@@ -156,13 +156,13 @@ where
 
     fn onrequest(&mut self, request: Request) -> Response<T> {
         if let Some(method) = self.methods.get(&request.method) {
-            let msg = method(&mut self.state, &request);
-            match msg {
-                Ok(msg) => return Response::ok(request, msg),
-                Err(err) => return Response::error(request, err.to_string()),
+            let response = method(&mut self.state, &request);
+            match response {
+                Ok(response) => Response::ok(request, response),
+                Err(err) => Response::error(request, err.to_string()),
             }
         } else {
-            return Response::error(request, "Method not found.".to_string());
+            Response::error(request, "Method not found.".to_string())
         }
     }
 

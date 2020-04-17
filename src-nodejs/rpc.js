@@ -4,7 +4,7 @@ const Duplexify = require('duplexify')
 const { Transform } = require('stream')
 const split2 = require('split2')
 
-const debug = require('debug')('sonar')
+const debug = require('debug')('sonar-tantivy')
 
 module.exports = commandPipe
 
@@ -17,9 +17,7 @@ function commandPipe (command, args = [], opts = {}) {
 
   debug(`Spawn: ${command} ${args.join(' ')}`)
 
-  if (opts.log) {
-    logStream(opts.log, proc.stderr, 'rs')
-  }
+  logStream(debug, proc.stderr, 'rs')
 
   const procStream = Duplexify(proc.stdin, proc.stdout)
   const rpcStream = new RpcPipe(opts)

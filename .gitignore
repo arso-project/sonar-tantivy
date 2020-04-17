@@ -10,3 +10,5 @@ _old
 node_modules
 .vscode
 /dist
+*.tar.gz
+*.zip

@@ -11,7 +11,8 @@ module.exports.segmentFiles = Sonar.segmentFiles
 
 function getCommand () {
   if (process.env.RUST_ENV === 'development') {
-    return `cargo run --manifest-path=${CARGO_TOML} --color=always -- `
+    const release = process.env.RUST_BUILD === 'release' ? '--release ' : ''
+    return `cargo run --manifest-path=${CARGO_TOML} ${release} --color=always -- `
   } else {
     return COMMAND_PATH
   }
