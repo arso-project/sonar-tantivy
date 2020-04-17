@@ -5,6 +5,10 @@ on: [push]
 jobs:
   build:
     runs-on: ${{ matrix.os }}
+    env:
+      RUST_BACKTRACE: 1
+      RUST_LOG: debug
+      DEBUG: *
     strategy:
       matrix:
         os: [ubuntu-latest, macOS-latest, windows-latest]
@@ -12,16 +16,21 @@ jobs:
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
+            cross: false
           - os: ubuntu-latest
-            target: armv7-unknown-linux-gnueabihf
             arch: armv7
+            target: armv7-unknown-linux-gnueabihf
+            cross: true
           - os: ubuntu-latest
-            target: aarch64-unknown-linux-gnu
             arch: aarch64
+            target: aarch64-unknown-linux-gnu
+            cross: true
           - os: macOS-latest
             target: x86_64-apple-darwin
+            cross: false
           - os: windows-latest
             target: x86_64-pc-windows-msvc
+            cross: false
     steps:
       - name: Get tag name
         id: vars
@@ -38,44 +47,65 @@ jobs:
           target: ${{ matrix.target }}
           override: true
 
-      #   uses: actions-rs/cargo@v1
-      #   with:
-      #     use-cross: true
-      #     command: test
+      - name: Test (Rust)
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          use-cross: ${{ matrix.cross }} 
 
-      - name: Build (Linux)
-        uses: actions-rs/cargo@v1
-        if: matrix.os == 'ubuntu-latest'
+      - name: Test (Node)
+        uses: actions/setup-node@v1
         with:
-          use-cross: true
+          node-version: '12.x'
+          registry-url: 'https://registry.npmjs.org'
+        env:
+          RUST_ENV: development
+          RUST_BUILD: release
+        run: |
+          npm install --ignore-scripts
+          npm test
+
+      - name: Build
+        uses: actions-rs/cargo@v1
+        with:
           command: build
           args: --release --target ${{ matrix.target }}
-      
-      - name: Build (Windows or macOS)
-        uses: actions-rs/cargo@v1
-        if: matrix.os != 'ubuntu-latest'
-        with:
-          command: build
-          args: --release --target ${{ matrix.target }}
+          use-cross: ${{ matrix.cross }}
 
       - name: Package (Linux or MacOS)
         if: matrix.os == 'ubuntu-latest' || matrix.os == 'macOS-latest'
+        env:
+          FILENAME: sonar-tantivy-${{ steps.vars.outputs.tag }}-${{ matrix.target }}.tar.gz
         run: |
-          tar -zvcf sonar-tantivy-${{ steps.vars.outputs.tag }}-${{ matrix.target }}.tar.gz README.md LICENSE -C target/${{ matrix.target }}/release/ sonar-tantivy
-          tar -tzvf sonar-tantivy-${{ steps.vars.outputs.tag }}-${{ matrix.target }}.tar.gz
+          tar -zvcf $FILENAME README.md LICENSE -C target/${{ matrix.target }}/release/ sonar-tantivy
+          tar -tzvf $FILENAME
 
       - name: Package (Windows)
         if: matrix.os == 'windows-latest'
+        env:
+          FILENAME: sonar-tantivy-${{ steps.vars.outputs.tag }}-${{ matrix.target }}.tar.gz
         run: |
-          7z a sonar-tantivy-${{ steps.vars.outputs.tag }}-${{ matrix.target }}.zip README.md LICENSE .\target\${{ matrix.target }}\release\sonar-tantivy.exe
-          7z l sonar-tantivy-${{ steps.vars.outputs.tag }}-${{ matrix.target }}.zip
+          7z a $Env:FILENAME README.md LICENSE .\target\${{ matrix.target }}\release\sonar-tantivy.exe
+          7z l $Env:FILENAME
 
-      - name: Release
+      - name: Publish (cargo)
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          cargo login ${{ secrets.CRATES_IO_TOKEN }}
+          cargo publish
+
+      - name: Publish (NPM)
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish
+
+      - name: Publish (Github Releases)
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           files: |
             '*.zip'
             '*.tar.gz'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
