@@ -36,12 +36,20 @@ jobs:
       #     use-cross: true
       #     command: test
 
-      - name: Build
+      - name: Build (Linux)
         uses: actions-rs/cargo@v1
+        if: matrix.os == 'ubuntu-latest'
         with:
           use-cross: true
           command: build
-          args: --release --target {{ matrix.target }}
+          args: --release --target ${{ matrix.target }}
+      
+      - name: Build (Windows or macOS)
+        uses: actions-rs/cargo@v1
+        if: matrix.os != 'ubuntu-latest'
+        with:
+          command: build
+          args: --release --target ${{ matrix.target }}  
 
       - name: Package (Linux or MacOS)
         if: matrix.os == 'ubuntu-latest' || matrix.os == 'macOS-latest'
