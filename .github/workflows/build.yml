@@ -87,11 +87,10 @@ jobs:
       - name: Package (Windows)
         if: matrix.os == 'windows-latest'
         env:
-          FILENAME: sonar-tantivy-${{ steps.vars.outputs.tag }}-${{ matrix.target }}.tar.gz
+          FILENAME: sonar-tantivy-${{ steps.vars.outputs.tag }}-${{ matrix.target }}.zip
         run: |
-          7z a ${Env:FILENAME} README.md LICENSE .\target\${{ matrix.target }}\release\sonar-tantivy.exe
-          7z l ${env:FILENAME}
-
+          7z a sonar-tantivy-${{ steps.vars.outputs.tag }}-${{ matrix.target }}.zip README.md LICENSE .\target\${{ matrix.target }}\release\sonar-tantivy.exe
+          7z l sonar-tantivy-${{ steps.vars.outputs.tag }}-${{ matrix.target }}.zip
       
       - name: Publish (Github Releases)
         if: startsWith(github.ref, 'refs/tags/v')
