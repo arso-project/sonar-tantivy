@@ -8,7 +8,7 @@ jobs:
     env:
       RUST_BACKTRACE: 1
       RUST_LOG: debug
-      DEBUG: *
+      DEBUG: "*"
     strategy:
       matrix:
         os: [ubuntu-latest, macOS-latest, windows-latest]
@@ -53,17 +53,11 @@ jobs:
           command: test
           use-cross: ${{ matrix.cross }} 
 
-      - name: Test (Node)
+      - name: Setup NodeJS
         uses: actions/setup-node@v1
         with:
           node-version: '12.x'
           registry-url: 'https://registry.npmjs.org'
-        env:
-          RUST_ENV: development
-          RUST_BUILD: release
-        run: |
-          npm install --ignore-scripts
-          npm test
 
       - name: Build
         uses: actions-rs/cargo@v1
@@ -71,6 +65,14 @@ jobs:
           command: build
           args: --release --target ${{ matrix.target }}
           use-cross: ${{ matrix.cross }}
+     
+      - name: Test (NodeJS)
+        env:
+          RUST_ENV: development
+          RUST_BUILD: release
+        run: |
+          npm install --ignore-scripts
+          npm test
 
       - name: Package (Linux or MacOS)
         if: matrix.os == 'ubuntu-latest' || matrix.os == 'macOS-latest'
