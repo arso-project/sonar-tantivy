@@ -1,6 +1,6 @@
-name: Release
+name: Test, Build, Publish
 
-on: [push]
+on: [push, pull_request]
 
 jobs:
   build:
@@ -32,7 +32,7 @@ jobs:
             target: x86_64-pc-windows-msvc
             cross: false
     steps:
-      - name: Get tag name
+      - name: Get tag/branch name
         id: vars
         shell: bash
         run: echo ::set-output name=tag::${GITHUB_REF#refs/*/}
@@ -40,24 +40,31 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v1
 
-      - name: Install Rust toolchain
+      - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
           target: ${{ matrix.target }}
           override: true
 
+      - name: Install NodeJS
+        uses: actions/setup-node@v1
+        with:
+          node-version: '12.x'
+          registry-url: 'https://registry.npmjs.org'
+
       - name: Test (Rust)
         uses: actions-rs/cargo@v1
         with:
           command: test
           use-cross: ${{ matrix.cross }} 
-
-      - name: Setup NodeJS
-        uses: actions/setup-node@v1
-        with:
-          node-version: '12.x'
-          registry-url: 'https://registry.npmjs.org'
+     
+      - name: Test (NodeJS)
+        env:
+          RUST_ENV: development
+        run: |
+          npm install --ignore-scripts
+          npm test
 
       - name: Build
         uses: actions-rs/cargo@v1
@@ -65,14 +72,6 @@ jobs:
           command: build
           args: --release --target ${{ matrix.target }}
           use-cross: ${{ matrix.cross }}
-     
-      - name: Test (NodeJS)
-        env:
-          RUST_ENV: development
-          RUST_BUILD: release
-        run: |
-          npm install --ignore-scripts
-          npm test
 
       - name: Package (Linux or MacOS)
         if: matrix.os == 'ubuntu-latest' || matrix.os == 'macOS-latest'
@@ -90,11 +89,11 @@ jobs:
           7z a $Env:FILENAME README.md LICENSE .\target\${{ matrix.target }}\release\sonar-tantivy.exe
           7z l $Env:FILENAME
 
-      - name: Publish (cargo)
-        if: startsWith(github.ref, 'refs/tags/')
-        run: |
-          cargo login ${{ secrets.CRATES_IO_TOKEN }}
-          cargo publish
+      # - name: Publish (cargo)
+      #   if: startsWith(github.ref, 'refs/tags/')
+      #   run: |
+      #     cargo login ${{ secrets.CRATES_IO_TOKEN }}
+      #     cargo publish
 
       - name: Publish (NPM)
         if: startsWith(github.ref, 'refs/tags/')
