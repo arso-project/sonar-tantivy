@@ -4,6 +4,7 @@ on: [push]
 
 jobs:
   build:
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, macOS-latest, windows-latest]
@@ -19,50 +20,47 @@ jobs:
             target: x86_64-apple-darwin
           - os: windows-latest
             target: x86_64-pc-windows-msvc
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
 
-      runs-on: ${{ matrix.os }}
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          target: ${{ matrix.target }}
+          override: true
 
-      steps:
-        - name: Checkout
-          uses: actions/checkout@v1
+      #   uses: actions-rs/cargo@v1
+      #   with:
+      #     use-cross: true
+      #     command: test
 
-        - name: Install Rust toolchain
-          uses: actions-rs/toolchain@v1
-          with:
-            toolchain: ${{ matrix.rust }}
-            target: ${{ matrix.target }}
-            override: true
+      - name: Build
+        uses: actions-rs/cargo@v1
+        with:
+          use-cross: true
+          command: build
+          args: --release --target {{ matrix.target }}
 
-        #   uses: actions-rs/cargo@v1
-        #   with:
-        #     use-cross: true
-        #     command: test
+      - name: Package (Linux or MacOS)
+        if: matrix.os == 'ubuntu-latest' || matrix.os == 'macOS-latest'
+        run: |
+          tar -zvcf sonar-tantivy-${{ github.ref }}-${{ matrix.target }}.tar.gz README.md LICENSE -C target/release/ sonar-tantivy
+          tar -tzvf sonar-tantivy-${{ github.ref }}-${{ matrix.target }}.tar.gz
 
-        - name: Build
-          uses: actions-rs/cargo@v1
-          with:
-            use-cross: true
-            command: build
-            args: --release --target {{ matrix.target }}
+      - name: Package (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          7z a ${sonar-tantivy-${{ github.ref}}-${{ matrix.target }}.zip README.md LICENSE -C target/release sonar-tantivy.exe
+          7z l ${sonar-tantivy-${{ github.ref}}-${{ matrix.target }}.zip
 
-        - name: Package (Linux or MacOS)
-          if: matrix.os == 'ubuntu-latest' || matrix.os == 'macOS-latest'
-          run: |
-            tar -zvcf sonar-tantivy-${{ github.ref }}-${{ matrix.target }}.tar.gz README.md LICENSE -C target/release/ sonar-tantivy
-            tar -tzvf sonar-tantivy-${{ github.ref }}-${{ matrix.target }}.tar.gz
-
-        - name: Package (Windows)
-          if: matrix.os == 'windows-latest'
-          run: |
-            7z a ${sonar-tantivy-${{ github.ref}}-${{ matrix.target }}.zip README.md LICENSE -C target/release sonar-tantivy.exe
-            7z l ${sonar-tantivy-${{ github.ref}}-${{ matrix.target }}.zip
-
-        - name: Release
-          if: startsWith(github.ref, 'refs/tags/')
-          uses: softprops/action-gh-release@v1
-          with:
-            files: |
-              '*.zip'
-              '*.tar.gz'
-          env:
-            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            '*.zip'
+            '*.tar.gz'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
