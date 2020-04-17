@@ -103,9 +103,9 @@ jobs:
             *.tar.gz
 
   publish_npm:
+    runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     needs: build
-
     steps:
       - name: Checkout
         uses: actions/checkout@v1
