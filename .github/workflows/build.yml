@@ -89,9 +89,10 @@ jobs:
         env:
           FILENAME: sonar-tantivy-${{ steps.vars.outputs.tag }}-${{ matrix.target }}.tar.gz
         run: |
-          7z a $Env:FILENAME README.md LICENSE .\target\${{ matrix.target }}\release\sonar-tantivy.exe
-          7z l $Env:FILENAME
+          7z a ${Env:FILENAME} README.md LICENSE .\target\${{ matrix.target }}\release\sonar-tantivy.exe
+          7z l ${env:FILENAME}
 
+      
       - name: Publish (Github Releases)
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v1
