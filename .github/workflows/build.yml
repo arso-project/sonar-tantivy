@@ -108,6 +108,7 @@ jobs:
         env:
           SKIP_BUILD: "1"
         run: |
+          npm install --ignore-scripts
           node scripts/install.js
 
   publish_npm:
