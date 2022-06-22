@@ -1,6 +1,6 @@
 {
   "name": "@arso-project/sonar-tantivy",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "A tantivy search engine",
   "main": "src-nodejs/index.js",
   "scripts": {
