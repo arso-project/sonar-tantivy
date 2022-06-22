@@ -7,7 +7,6 @@ const SEGMENT_FILES = [
   '.fieldnorm',
   '.idx',
   '.pos',
-  '.posidx',
   '.store',
   '.term'
 ]

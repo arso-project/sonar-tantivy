@@ -174,7 +174,7 @@ impl IndexHandle {
                 let mut document = Document::default();
                 for (field_name, value) in doc {
                     match schema.get_field(&field_name) {
-                        Some(field) => document.add(FieldValue::new(field, value.clone())),
+                        Some(field) => document.add_field_value(field, value.clone()),
                         None => eprintln!("Invalid field: {}", field_name),
                     }
                 }
@@ -229,7 +229,7 @@ impl IndexHandle {
         if self.query_parser.is_none() {
             let mut fields = vec![];
             let all_fields = schema.fields();
-            for field_entry in all_fields {
+            for (_field, field_entry) in all_fields {
                 if !field_entry.is_indexed() {
                     break;
                 }
@@ -308,6 +308,7 @@ impl IndexHandle {
                 schema,
                 opstamp,
                 payload: None,
+                index_settings: tantivy::IndexSettings::default(),
             };
             save_metas(&metas, self.index.directory_mut())?;
         } else {
@@ -383,20 +384,19 @@ fn move_segment() {
     // get the segment_id for the segment in index1 and copy the files in index2 dir
     let moving_segment = allsegments.pop().unwrap();
     let uuid_string = moving_segment.uuid_string();
-    let exts = [
-        ".fast",
-        ".fieldnorm",
-        ".idx",
-        ".pos",
-        ".posidx",
-        ".store",
-        ".term",
-    ];
+    // let mut p = base_path.clone();
+    // p.push(["testindex1/"].concat());
+    // let e = fs::read_dir(&p).unwrap();
+    // for x in e {
+    //     eprintln!("PATH {:?}", x);
+    // }
+    let exts = [".fast", ".fieldnorm", ".idx", ".pos", ".store", ".term"];
     for ext in exts.iter() {
         let mut path1 = base_path.clone();
         path1.push(["testindex1/", &uuid_string, ext].concat());
         let mut path2 = base_path.clone();
         path2.push(["testindex2/", &uuid_string, ext].concat());
+        // fs::create_dir_all(path2.parent().unwrap()).unwrap();
         let _result = fs::copy(path1, path2).unwrap();
     }
 

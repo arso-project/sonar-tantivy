@@ -1,4 +1,3 @@
-extern crate failure;
 use crate::index::IndexCatalog;
 use rpc::Rpc;
 use std::env;
@@ -20,6 +19,7 @@ mod handles;
 mod index;
 mod query;
 mod rpc;
+mod search;
 
 fn main() -> io::Result<()> {
     let args: Vec<String> = env::args().collect();

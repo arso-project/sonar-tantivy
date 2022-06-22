@@ -9,19 +9,29 @@ const CARGO_TOML = p.resolve(p.join(__dirname, '../Cargo.toml'))
 module.exports = openSonar
 module.exports.segmentFiles = Sonar.segmentFiles
 
-function getCommand () {
+function getCommandAndArgs () {
   if (process.env.RUST_ENV === 'development') {
-    const release = process.env.RUST_BUILD === 'release' ? '--release ' : ''
-    return `cargo run --manifest-path=${CARGO_TOML} ${release} --color=always -- `
+    const args = [
+      'run',
+      `--manifest-path=${CARGO_TOML}`,
+      '--color=always'
+    ]
+    if (process.env.RUST_BUILD === 'release') args.push('--release')
+    if (process.env.CARGO_ARGS) {
+      args.push(...process.env.CARGO_ARGS.split(' '))
+    }
+    args.push('--')
+    return ['cargo', args]
   } else {
-    return COMMAND_PATH
+    return [COMMAND_PATH, []]
   }
 }
 
 function openSonar (path, opts = {}) {
   path = p.resolve(path)
-  const command = getCommand()
-  const pipe = new Pipe(command, [path], {
+  const [command, args] = getCommandAndArgs()
+  args.push(path)
+  const pipe = new Pipe(command, args, {
     log: opts.log || (process.env.RUST_ENV === 'development' && console.log)
   })
   opts.path = path

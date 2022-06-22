@@ -11,6 +11,7 @@
   "author": "Franz Heinzmann",
   "license": "MIT",
   "dependencies": {
+    "ansi-colors": "^4.1.3",
     "debug": "^4.1.1",
     "duplexify": "^4.1.1",
     "pump": "^3.0.0",
