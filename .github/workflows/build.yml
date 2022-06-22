@@ -19,7 +19,7 @@ jobs:
             cross: false
           - os: ubuntu-20.04
             arch: armv7
-            target: armv7-unknown-linux-musl
+            target: armv7-unknown-linux-muslabihf
             cross: true
           - os: ubuntu-20.04
             arch: aarch64
@@ -46,6 +46,7 @@ jobs:
           toolchain: stable
           target: ${{ matrix.target }}
           override: true
+          default: true
 
       - name: Install NodeJS
         uses: actions/setup-node@v1
