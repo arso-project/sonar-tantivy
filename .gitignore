@@ -12,3 +12,4 @@ node_modules
 /dist
 *.tar.gz
 *.zip
+yarn.lock

@@ -10,15 +10,18 @@ name = "sonar-tantivy"
 path = "src-rust/main.rs"
 
 [dependencies]
-tantivy = { git = "https://github.com/tantivy-search/tantivy.git", rev = "7e08e0047bf842d2ce0f9cd7791451bffb85e2f6" }
 serde_json = { version = "^1.0", features = ["preserve_order"] }
 serde = { version = "^1.0", features = ["derive"] }
-toshi-query = { git = "https://github.com/arso-project/Toshi.git", branch = "toshi-query-tantivymaster" }
 log = "^0.4"
 uuid = "^0.7"
 failure = "^0.1"
 varinteger = "^1.0"
 once_cell = "^0.2"
+
+toshi-types = { version = "^0.1", git = "https://github.com/toshi-search/Toshi.git", branch = "master" }
+tantivy = "^0.16"
+# toshi-query = { git = "https://github.com/arso-project/Toshi.git", branch = "toshi-query-tantivymaster" }
+# tantivy = { git = "https://github.com/tantivy-search/tantivy.git", rev = "7e08e0047bf842d2ce0f9cd7791451bffb85e2f6" }
 
 [dev-dependencies]
 tempdir = "^0.3"

@@ -1,10 +1,10 @@
 use crate::handles::Res;
 use crate::index::IndexCatalog;
 use crate::rpc::Request;
+use crate::search::search_index;
 use failure::Error;
 use serde::Deserialize;
-use toshi_query::search::search_index;
-use toshi_query::Search;
+use toshi_types::Search;
 
 #[derive(Deserialize)]
 struct QueryRequest {
@@ -14,13 +14,10 @@ struct QueryRequest {
 
 pub fn query_json(catalog: &mut IndexCatalog, request: &Request) -> Result<Res, Error> {
     let request: QueryRequest = request.message()?;
-    // eprintln!("QUERY {:?}", req);
     let handle = catalog.get_index(&request.index)?;
-    // let tantivy_results = handle.query(&req.query, req.limit.unwrap_or(10), req.snippet_field)?;
     let reader = handle.get_reader()?;
-    let searcher = reader.searcher();
 
-    let results = search_index(&handle.index, &searcher, request.search);
+    let results = search_index(&handle.index, &reader, request.search);
     match results {
         Ok(results) => {
             // let value: Value = Value::from(results);
