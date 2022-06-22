@@ -103,6 +103,13 @@ jobs:
             *.zip
             *.tar.gz
 
+      - name: Test postinstall download script
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          SKIP_BUILD: "1"
+        run: |
+          node scripts/install.js
+
   publish_npm:
     runs-on: ubuntu-20.04
     if: startsWith(github.ref, 'refs/tags/v')

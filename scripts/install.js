@@ -11,9 +11,9 @@ const REPO_ORG = 'arso-project'
 
 const TARGETS = {
   linux: {
-    x64: 'x86_64-unknown-linux-gnu',
-    arm: 'armv7-unknown-linux-gnueabihf',
-    arm64: 'aarch64-unknown-linux-gnu'
+    x64: 'x86_64-unknown-linux-musl',
+    arm: 'armv7-unknown-linux-musleabihf',
+    arm64: 'aarch64-unknown-linux-musl'
   },
   win32: {
     x64: 'x86_64-pc-windows-msvc'
@@ -68,16 +68,23 @@ function start (cb) {
   }
 
   downloadRelease(opts, err => {
-    // console.log('download finished', err)
-    if (!err) return done()
-    if (err) console.log('  Error: ' + err.message)
-    console.log('  Download of prebuild release failed, try to build...')
-    buildRelease(opts, done)
+    if (err) {
+      console.log('  Error: ' + err.message)
+      if (!process.env.SKIP_BUILD) {
+        console.log('  Download of prebuild release failed, try to build...')
+        buildRelease(opts, done)
+      } else {
+        done(err)
+      }
+    } else {
+      done()
+    }
   })
 
   function done (err) {
     if (err) return cb(err)
     console.log(`Installation of ${ct.package.name} ${opts.tag} successful!`)
+    cb()
   }
 }
 
