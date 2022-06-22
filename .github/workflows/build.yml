@@ -11,19 +11,19 @@ jobs:
       DEBUG: "*"
     strategy:
       matrix:
-        os: [ubuntu-16.04, macOS-latest, windows-latest]
+        os: [ubuntu-20.04, macOS-latest, windows-latest]
         arch: [x86_64]
         include:
-          - os: ubuntu-16.04
-            target: x86_64-unknown-linux-gnu
+          - os: ubuntu-20.04
+            target: x86_64-unknown-linux-musl
             cross: false
-          - os: ubuntu-16.04
+          - os: ubuntu-20.04
             arch: armv7
-            target: armv7-unknown-linux-gnueabihf
+            target: armv7-unknown-linux-musl
             cross: true
-          - os: ubuntu-16.04
+          - os: ubuntu-20.04
             arch: aarch64
-            target: aarch64-unknown-linux-gnu
+            target: aarch64-unknown-linux-musl
             cross: true
           - os: macOS-latest
             target: x86_64-apple-darwin
@@ -50,7 +50,7 @@ jobs:
       - name: Install NodeJS
         uses: actions/setup-node@v1
         with:
-          node-version: '12.x'
+          node-version: '16.x'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Test (Rust)
@@ -77,7 +77,7 @@ jobs:
           use-cross: ${{ matrix.cross }}
 
       - name: Package (Linux or MacOS)
-        if: matrix.os == 'ubuntu-16.04' || matrix.os == 'macOS-latest'
+        if: matrix.os == 'ubuntu-20.04' || matrix.os == 'macOS-latest'
         env:
           FILENAME: sonar-tantivy-${{ steps.vars.outputs.tag }}-${{ matrix.target }}.tar.gz
         run: |
@@ -103,7 +103,7 @@ jobs:
             *.tar.gz
 
   publish_npm:
-    runs-on: ubuntu-16.04
+    runs-on: ubuntu-20.04
     if: startsWith(github.ref, 'refs/tags/v')
     needs: build
     steps:
@@ -113,7 +113,7 @@ jobs:
       - name: Install NodeJS
         uses: actions/setup-node@v1
         with:
-          node-version: '12.x'
+          node-version: '16.x'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Publish (NPM)

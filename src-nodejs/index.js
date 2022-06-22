@@ -17,6 +17,9 @@ function getCommandAndArgs () {
       '--color=always'
     ]
     if (process.env.RUST_BUILD === 'release') args.push('--release')
+    if (process.env.CARGO_ARGS) {
+      args.push(...process.env.CARGO_ARGS.split(' '))
+    }
     args.push('--')
     return ['cargo', args]
   } else {
