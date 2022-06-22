@@ -1,6 +1,6 @@
 [package]
 name = "sonar-tantivy"
-version = "0.2.14"
+version = "0.3.0"
 authors = ["Franz Heinzmann (Frando) <frando@unbiskant.org>"]
 edition = "2018"
 repository = "https://github.com/arso-project/sonar-tantivy"
