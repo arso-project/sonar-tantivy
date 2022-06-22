@@ -1,10 +1,11 @@
 const fs = require('fs')
+const unzip = require('unzip-stream')
 const https = require('https')
 const p = require('path')
 const os = require('os')
+const { pipeline } = require('stream')
 const toml = require('toml')
 const { exec, spawnSync } = require('child_process')
-const debug = require('debug')
 
 const REPO_NAME = 'sonar-tantivy'
 const REPO_ORG = 'arso-project'
@@ -27,15 +28,12 @@ const BASE_PATH = p.join(__dirname, '..')
 const CARGO_PATH = p.join(BASE_PATH, 'Cargo.toml')
 const DIST_PATH = p.join(BASE_PATH, 'dist')
 
-try {
-  start((err) => {
-    if (err) exit(1, 'Installation failed: ' + err.message)
-  })
-} catch (err) {
-  exit(1, err.message)
-}
+run().catch(err => {
+  console.error('Installation failed: ' + err.message)
+  process.exit(1)
+})
 
-function start (cb) {
+async function run () {
   const ct = cargoToml()
   const platform = process.env.CI_PLATFORM || os.platform()
   const arch = process.env.CI_ARCH || os.arch()
@@ -67,42 +65,41 @@ function start (cb) {
     fs.mkdirSync(opts.dest)
   }
 
-  downloadRelease(opts, err => {
-    if (err) {
-      console.log('  Error: ' + err.message)
-      if (!process.env.SKIP_BUILD) {
-        console.log('  Download of prebuild release failed, try to build...')
-        buildRelease(opts, done)
-      } else {
-        done(err)
-      }
-    } else {
-      done()
-    }
-  })
+  try {
+    await downloadAndExtractRelease(opts)
+  } catch (err) {
+    console.log('  Error: ' + err.message)
+    if (process.env.SKIP_BUILD) throw err
+    console.log('  Download of prebuild release failed, try to build...')
+    await buildRelease(opts)
+  }
 
-  function done (err) {
-    if (err) return cb(err)
-    console.log(`Installation of ${ct.package.name} ${opts.tag} successful!`)
-    cb()
+  console.log(`Installation of ${ct.package.name} ${opts.tag} successful!`)
+}
+
+async function buildRelease (opts) {
+  const { binaries, dest } = opts
+  await new Promise((resolve, reject) => {
+    const { stdout, stderr } = exec(`cargo build --release --manifest-path=${CARGO_PATH} --color=always`, (err) => {
+      if (err) reject(err)
+      else resolve()
+    })
+    stdout.pipe(process.stdout)
+    stderr.pipe(process.stderr)
+  })
+  const srcPath = p.join(p.dirname(CARGO_PATH), 'target', 'release')
+  console.log('  Compilation successful!')
+  copyFiles(binaries, srcPath, dest)
+}
+
+function copyFiles (files, srcPath, dstPath) {
+  const paths = files.map(f => [p.join(srcPath, f), p.join(dstPath, f)])
+  for (const [src, dst] of paths) {
+    fs.copyFileSync(src, dst)
   }
 }
 
-function buildRelease (opts, cb) {
-  const { binaries, dest } = opts
-  cb = once(cb)
-  const { stdout, stderr } = exec(`cargo build --release --manifest-path=${CARGO_PATH} --color=always`, (err) => {
-    if (err) return cb(err)
-    const srcPath = p.join(p.dirname(CARGO_PATH), 'target', 'release')
-    console.log('  Compilation successful!')
-    copyFiles(binaries, srcPath, dest, cb)
-  })
-  stdout.pipe(process.stdout)
-  stderr.pipe(process.stderr)
-}
-
-function downloadRelease (opts, cb) {
-  cb = once(cb)
+async function downloadAndExtractRelease (opts) {
   const { tag, targetTriple, platform, dest } = opts
 
   let filename
@@ -115,41 +112,18 @@ function downloadRelease (opts, cb) {
   const filepath = p.join(dest, filename)
 
   console.log(`  Download: ${url}`)
-  download(url, filepath, extract)
+  await download(url, filepath)
+  console.log('  Download successful.')
+  await extract(filepath, dest)
 
-  function extract (err) {
-    if (err) return done(err)
-    if (!fs.existsSync(filepath)) return done(new Error('Error: Download failed.'))
-    // TODO: Handle windows?
-    try {
-      let res
-      if (opts.platform === 'win32') {
-        // Taken from https://github.com/feross/cross-zip/blob/master/index.js
-        res = spawnSync('powershell.exe', [
-          '-nologo',
-          '-noprofile',
-          '-command', '& { param([String]$myInPath, [String]$myOutPath); Add-Type -A "System.IO.Compression.FileSystem"; [IO.Compression.ZipFile]::ExtractToDirectory($myInPath, $myOutPath); }',
-          '-myInPath', filepath,
-          '-myOutPath', dest
-        ])
-      } else {
-        res = spawnSync('tar', ['-xzf', filepath, '-C', dest])
-      }
-      if (res.error) {
-        throw new Error('Failed to extract archive, Error: ' + res.error.message)
-      }
-      for (let bin of opts.binaries) {
-        if (!fs.existsSync(p.join(dest, bin))) return done(new Error('Error: Binary is not in archive.'))
-      }
-      done()
-    } catch (e) {
-      done(e)
+  for (const bin of opts.binaries) {
+    const bpath = p.join(dest, bin)
+    if (!fs.existsSync(bpath)) {
+      throw new Error(`Error: Binary not found in archive (\`${bpath} not found after extracting)`)
     }
   }
 
-  function done (err) {
-    fs.unlink(filepath, err2 => cb(err || err2))
-  }
+  fs.unlinkSync(filepath)
 }
 
 function cargoToml () {
@@ -157,65 +131,57 @@ function cargoToml () {
   return toml.parse(str)
 }
 
-function exit (code, msg) {
-  const log = code ? console.error : console.log
-  if (msg) log(msg)
-  process.exit(code)
+async function extract (filepath, dest) {
+  if (!fs.existsSync(filepath)) throw new Error('Error: Download failed.')
+  if (filepath.endsWith('.zip')) {
+    await new Promise((resolve, reject) => {
+      pipeline(fs.createReadStream(filepath), unzip.Extract({ path: dest }), err => err ? reject(err) : resolve())
+    })
+  } else {
+    const res = spawnSync('tar', ['-xzf', filepath, '-C', dest])
+    if (res.error) {
+      throw new Error('Failed to extract archive, Error: ' + res.error.message)
+    }
+  }
 }
 
-function download (url, dest, cb) {
-  cb = once(cb)
-  const target = fs.createWriteStream(dest)
-  const request = https.get(url, response => {
-    // console.log(`  -> Status ${response.statusCode} ${response.statusMessage}`)
-    if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
-      // console.log('  -> Redirecting...')
-      return download(response.headers.location, dest, cb)
-    } else if (response.statusCode !== 200) {
-      return cb(new Error(`Download failed: ${response.statusCode} ${response.statusMessage}`))
-    }
+async function download (url, dest) {
+  const [request, response] = await new Promise(resolve => {
+    const request = https.get(url, response => resolve([request, response]))
+  })
+  // console.log(`  -> Status ${response.statusCode} ${response.statusMessage}`)
+  if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+    // console.log('  -> Redirecting...')
+    return download(response.headers.location, dest)
+  } else if (response.statusCode !== 200) {
+    throw new Error(`Download failed: ${response.statusCode} ${response.statusMessage}`)
+  }
 
-    let size = response.headers['content-length']
-    let len = 0
-    let msg = '  Downloading ' + pretty(size)
-    let status = () => console.log(msg + '... ' + Math.round((len / size) * 100) + '%')
-    let report = setInterval(status, 1000)
-    status()
-    response.pipe(target)
-    response.on('data', d => (len = len + d.length))
+  const size = response.headers['content-length']
+  let len = 0
+  const msg = '  Downloading ' + pretty(size)
+  const status = () => console.log(msg + '... ' + Math.round((len / size) * 100) + '%')
+  const report = setInterval(status, 1000)
+  status()
+  const target = fs.createWriteStream(dest)
+  response.pipe(target)
+  response.on('data', d => (len = len + d.length))
+  await new Promise((resolve, reject) => {
+    target.on('error', reject)
+    request.on('error', err => {
+      fs.unlink(dest, () => reject(err))
+    })
     target.on('finish', () => {
       clearInterval(report)
       status()
-      cb()
+      resolve('adsf')
     })
   })
-  request.on('error', err => {
-    fs.unlink(dest, () => cb(err))
-  })
 }
 
-function copyFiles (files, srcPath, dstPath, cb) {
-  cb = once(cb)
-  let paths = files.map(f => [p.join(srcPath, f), p.join(dstPath, f)])
-  let pending = paths.length
-  paths.forEach(([src, dst]) => fs.copyFile(src, dst, done))
-  function done (err) {
-    if (err) cb(err)
-    else if (!--pending) cb()
-  }
-}
-
-function once (fn) {
-  let finish = false
-  return (...args) => {
-    if (finish) return
-    finish = true
-    fn(...args)
-  }
-}
 function pretty (bytes) {
-  let prefixes = ['', 'KB', 'MB', 'GB', 'TB']
-  let base = 1024
+  const prefixes = ['', 'KB', 'MB', 'GB', 'TB']
+  const base = 1024
   for (let pow = prefixes.length - 1; pow >= 0; pow--) {
     if (bytes > Math.pow(base, pow)) {
       return Math.round((bytes / Math.pow(base, pow)) * 100) / 100 + ' ' + prefixes[pow]
