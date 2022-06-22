@@ -2,7 +2,6 @@ use crate::handles::Res;
 use crate::index::IndexCatalog;
 use crate::rpc::Request;
 use crate::search::search_index;
-use failure::Error;
 use serde::Deserialize;
 use toshi_types::Search;
 
@@ -12,7 +11,7 @@ struct QueryRequest {
     search: Search,
 }
 
-pub fn query_json(catalog: &mut IndexCatalog, request: &Request) -> Result<Res, Error> {
+pub fn query_json(catalog: &mut IndexCatalog, request: &Request) -> Result<Res, anyhow::Error> {
     let request: QueryRequest = request.message()?;
     let handle = catalog.get_index(&request.index)?;
     let reader = handle.get_reader()?;

@@ -1,4 +1,3 @@
-extern crate failure;
 use crate::index::IndexCatalog;
 use rpc::Rpc;
 use std::env;

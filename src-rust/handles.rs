@@ -1,6 +1,6 @@
 use crate::index::{IndexCatalog, SegmentInfo};
 use crate::rpc::Request;
-use failure::Error;
+use anyhow::Error;
 use serde::{Deserialize, Serialize};
 use serde_json;
 use std::fmt;
