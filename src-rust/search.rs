@@ -1,11 +1,8 @@
 use log::*;
 use tantivy::collector::{FacetCollector, MultiCollector, TopDocs};
-use tantivy::directory::MmapDirectory;
-use tantivy::merge_policy::MergePolicy;
 use tantivy::query::{AllQuery, QueryParser};
 use tantivy::schema::*;
-use tantivy::space_usage::SearcherSpaceUsage;
-use tantivy::{Document, Index, IndexReader, IndexWriter, ReloadPolicy, Term};
+use tantivy::{Index, IndexReader};
 use toshi_types::{CreateQuery, Error, FlatNamedDocument, KeyValue, Query, ScoredDoc, Search};
 
 pub type SearchResults = toshi_types::SearchResults<FlatNamedDocument>;

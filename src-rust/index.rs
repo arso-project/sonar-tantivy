@@ -174,7 +174,7 @@ impl IndexHandle {
                 let mut document = Document::default();
                 for (field_name, value) in doc {
                     match schema.get_field(&field_name) {
-                        Some(field) => document.add(FieldValue::new(field, value.clone())),
+                        Some(field) => document.add_field_value(field, value.clone()),
                         None => eprintln!("Invalid field: {}", field_name),
                     }
                 }
@@ -229,7 +229,7 @@ impl IndexHandle {
         if self.query_parser.is_none() {
             let mut fields = vec![];
             let all_fields = schema.fields();
-            for (field, field_entry) in all_fields {
+            for (_field, field_entry) in all_fields {
                 if !field_entry.is_indexed() {
                     break;
                 }
