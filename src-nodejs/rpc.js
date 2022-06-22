@@ -1,6 +1,7 @@
 const { spawn } = require('child_process')
 const pump = require('pump')
 const Duplexify = require('duplexify')
+const c = require('ansi-colors')
 const { Transform } = require('stream')
 const split2 = require('split2')
 
@@ -13,22 +14,41 @@ const callbacks = Symbol('callbacks')
 const counter = Symbol('counter')
 
 function commandPipe (command, args = [], opts = {}) {
-  const proc = spawn(command, args, { shell: true })
-
   debug(`Spawn: ${command} ${args.join(' ')}`)
+  const proc = spawn(command, args)
 
-  logStream(debug, proc.stderr, 'rs')
+  logStream(debug, proc.stderr)
 
   const procStream = Duplexify(proc.stdin, proc.stdout)
   const rpcStream = new RpcPipe(opts)
+  let closed = false
+
+  const onError = (code, err) => {
+    if (closed) return
+    closed = true
+    if (code !== null && code !== 0) {
+      if (!rpcStream._started || err?.code === 'ENOENT') {
+        console.error(c.red.bold('ERROR: sonar-tantivy failed to start the tantivy process.'))
+        console.error(c.yellow('Make sure that the sonar-tantivy binary was downloaded.'))
+        console.error(c.yellow('Run the following command to re-run the download script:'))
+        console.error('    cd node_modules/@arso-project/sonar-tantivy; npm run postinstall')
+        console.error(c.yellow('or set the environement variable'))
+        console.error('    DEBUG=sonar-tantivy')
+        console.error(c.yellow('to see the full error log.'))
+        rpcStream.emit('error', new Error('sonar-tantivy failed to start.'))
+      } else {
+        console.error(c.red.bold('ERROR: sonar-tantivy crashed.') + c.red(` (exit code: ${code})`))
+        console.error(c.yellow('Set environement variable') + ' DEBUG=sonar-tantivy ' + c.yellow('to see the error output.'))
+        rpcStream.emit('error', new Error('sonar-tantivy crashed.'))
+      }
+    }
+    rpcStream.destroy()
+  }
+
+  proc.on('error', err => onError(1, err))
+  proc.on('close', code => onError(code))
 
   pump(procStream, rpcStream, procStream)
-
-  proc.on('close', code => {
-    if (code !== null && code !== 0) rpcStream.emit('error', new Error('Child process died: ' + code))
-    rpcStream.destroy()
-  })
-
   rpcStream.childProcess = proc
 
   return rpcStream
@@ -54,7 +74,7 @@ class RpcPipe extends Duplexify {
     this.out = new Transform({
       objectMode: true,
       transform (chunk, enc, done) {
-        let json = JSON.stringify(chunk)
+        const json = JSON.stringify(chunk)
         this.push(json + '\n')
         done()
       }
@@ -102,6 +122,7 @@ class RpcPipe extends Duplexify {
   }
 
   _recv (msg) {
+    if (!this._started) this._started = true
     if (msg.id >= 0 && msg.method) {
       this._onrequest(msg)
     } else if (msg.id < 0) {
@@ -138,8 +159,9 @@ class RpcPipe extends Duplexify {
 
 function logStream (log, stream, name) {
   if (log === true) log = debug
-  stream.on('data', msg => log(`${name}: ${stringify(msg)}`))
-  stream.on('error', msg => log(`${name} [ERROR]: ${msg}`))
+  name = name ? name + ':' : ''
+  stream.on('data', msg => log(`${name} ${stringify(msg)}`))
+  stream.on('error', msg => log(`${name} [ERROR] ${msg}`))
   function stringify (msg) {
     if (Buffer.isBuffer(msg)) msg = msg.toString()
     if (typeof msg === 'object') msg = JSON.stringify(msg)

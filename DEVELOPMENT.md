@@ -4,7 +4,7 @@
 
 ```
 cargo test
-CARGO_ENV=development npm run test
+RUST_ENV=development npm run test
 ```
 
 ## Making a release
