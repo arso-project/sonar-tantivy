@@ -5,10 +5,10 @@ A [tantivy](https://github.com/tantivy-search/tantivy) based search engine for N
 ## Example
 
 ```js
-const Sonar = require('@archipel/sonar')
+const IndexCatalog = require('@arso-project/sonar-tantivy')
 
 (async function () {
-  const catalog = new Sonar('./data')
+  const catalog = new IndexCatalog ('./data')
   const schema = getSchema()
   const index = await catalog.openOrCreate('index-name', schema)
   const docs = getDocs()
@@ -53,13 +53,17 @@ function getSchema () {
 
 ## Installation
 
-#### `npm install @archipel/sonar`
+#### `npm install @arso-project/sonar-tantivy`
 
 A `postinstall` script automatically tries to download a precompiled binary for the rust/tantivy part. If unsuccessfull the script will try to compile it if a rust toolchain is present.
 
-## API
+## Usage
 
-#### `const catalog = new Sonar(storage)`
+```javascript
+const IndexCatalog = require('@arso-project/sonar-tantivy')
+```
+
+#### `const catalog = new IndexCatalog(storage)`
 
 `storage` is a file system path where the index will be stored.
 
